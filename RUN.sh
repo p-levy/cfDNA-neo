@@ -20,21 +20,21 @@ CFDNA_NEO=/Users/plevy/Library/CloudStorage/OneDrive-VHIO/labagros/pierre/proj/c
 
 # ASCAT #########################################################################
 # docker load -i /Volumes/datos_lab/ascat/docker_ascat.tar
-mkdir -p /Volumes/datos_lab/ascat/${PATIENT}
-docker run --rm \
-	-v ${NEOPRED}:/neopred \
-	-v /Volumes/datos_lab/ascat/${PATIENT}:/ascat \
-	-v ${CFDNA_NEO}:/scripts \
-	-v ${REF}:/ref \
-	-w /ascat \
-    plevy/ascat:latest \
-    Rscript /scripts/ascat_cfDNA.R \
-		/neopred/preprocessing/${PATIENT}_cfDNA/recalibrated/${PATIENT}_cfDNA.recal.bam \
-		/neopred/preprocessing/${PATIENT}_gDNA/recalibrated/${PATIENT}_gDNA.recal.bam \
-		${PATIENT} \
-		/ref/${BED} \
-		/ref/ASCAT \
-		${THREADS}
+# mkdir -p /Volumes/datos_lab/ascat/${PATIENT}
+# docker run --rm \
+# 	-v ${NEOPRED}:/neopred \
+# 	-v /Volumes/datos_lab/ascat/${PATIENT}:/ascat \
+# 	-v ${CFDNA_NEO}:/scripts \
+# 	-v ${REF}:/ref \
+# 	-w /ascat \
+#     plevy/ascat:latest \
+#     Rscript /scripts/ascat_cfDNA.R \
+# 		/neopred/preprocessing/${PATIENT}_cfDNA/recalibrated/${PATIENT}_cfDNA.recal.bam \
+# 		/neopred/preprocessing/${PATIENT}_gDNA/recalibrated/${PATIENT}_gDNA.recal.bam \
+# 		${PATIENT} \
+# 		/ref/${BED} \
+# 		/ref/ASCAT \
+# 		${THREADS}
 
 # VCF to COUNT ###################################################################
 mkdir -p /Volumes/datos_lab/cfDNA-Neo/${PATIENT}

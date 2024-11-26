@@ -77,7 +77,7 @@ variants <- variants %>% filter(!str_detect(ALT, "[ATCG],[ATCG]"))
 #                                    ntCount(bam_normal, CHROM, POS, POS, ALT)))))
 
 # Parallelize extraction of counts
-cl <- makeCluster(threads) # Create a cluster using chosen number of cores
+cl <- parallel::makeCluster(as.numeric(threads)) # Create a cluster using chosen number of cores
 registerDoParallel(cl)
 
 variants_counts <- foreach(i = 1:nrow(variants), .combine = rbind, .packages = c("deepSNV", "dplyr", "stringr")) %dopar% {
@@ -110,5 +110,3 @@ stopCluster(cl) # Stop the cluster
 
 # Write the results
 write.table(variants_counts, file = paste0(outdir, "/", patient_name, "_variants_counts.tsv"), quote = FALSE, sep = "\t", row.names = FALSE)
-
-```
