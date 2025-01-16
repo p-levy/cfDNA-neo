@@ -71,7 +71,7 @@ if (grepl("GOI|Motri", patient)) {
 # Filter variants
 # TVAF >=3%
 # Variant reads =or>4 reads
-# Coverage = or > 9 in tumor and normal samples (but not necessarily all 3)
+# Coverage = or > 9 in all 3 tumor and normal samples
 # called by 2 or more callers both SNV and INDELS
 # All mutations that normal VAF = 0
 # If normal has VAF, VAF >5X in tumor compared to normal
@@ -85,7 +85,7 @@ min_callers_indels <- 2
 variants_FrTu <- variants %>%
     filter(vaf_FrTu >= min_tvaf) %>%
     filter(ALT_counts_FrTu >= min_alt) %>%
-    filter(cov_FrTu >= min_cov & cov_Normal >= min_cov) %>%
+    filter(cov_FrTu >= min_cov & cov_cfDNA >= min_cov & cov_Normal >= min_cov) %>%
     filter(vaf_Normal == 0 | vaf_FrTu >= 5 * vaf_Normal) %>%
     filter(ifelse(str_detect(found_in, "SNV"), n_callers.FrTu >= min_callers_snv, n_callers.FrTu >= min_callers_indels)) %>%
     filter(vaf_cfDNA < min_tvaf | ALT_counts_cfDNA < min_alt | (ifelse(str_detect(found_in, "SNV"), is.na(n_callers.cfDNA) | n_callers.cfDNA < min_callers_snv, is.na(n_callers.cfDNA) | n_callers.cfDNA < min_callers_indels)) | cov_cfDNA < min_cov | vaf_cfDNA < 5 * vaf_Normal) %>%
@@ -94,7 +94,7 @@ variants_FrTu <- variants %>%
 variants_cfDNA <- variants %>%
     filter(vaf_cfDNA >= min_tvaf) %>%
     filter(ALT_counts_cfDNA >= min_alt) %>%
-    filter(cov_cfDNA >= min_cov & cov_Normal >= min_cov) %>%
+    filter(cov_FrTu >= min_cov & cov_cfDNA >= min_cov & cov_Normal >= min_cov) %>%
     filter(vaf_Normal == 0 | vaf_cfDNA >= 5 * vaf_Normal) %>%
     filter(ifelse(str_detect(found_in, "SNV"), n_callers.cfDNA >= min_callers_snv, n_callers.cfDNA >= min_callers_indels)) %>%
     filter(vaf_FrTu < min_tvaf | ALT_counts_FrTu < min_alt | (ifelse(str_detect(found_in, "SNV"), is.na(n_callers.FrTu) | n_callers.FrTu < min_callers_snv, is.na(n_callers.FrTu) | n_callers.FrTu < min_callers_indels)) | cov_FrTu < min_cov | vaf_FrTu < 5 * vaf_Normal) %>%
