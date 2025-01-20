@@ -39,6 +39,7 @@ immunogenic <- args[8] # comma-sep list of immunogenic positions eg: immunogenic
 purity_FrTu <- args[9] # purity_FrTu <- 0.81 # Used ASCAT purity  Write "vaf" if peak_vaf has to be used!
 purity_cfDNA <- args[10] # purity_cfDNA <- 0.32 # Used ASCAT purity #2*peak_vaf_cfDNA Write "vaf" if peak_vaf has to be used!
 
+system(paste0("mkdir -p ", outdir))
 setwd(outdir)
 
 # Load mutation count data
@@ -80,7 +81,7 @@ min_tvaf <- 0.03
 min_alt <- 4
 min_cov <- 9
 min_callers_snv <- 2
-min_callers_indels <- 2
+min_callers_indels <- 1
 
 variants_FrTu <- variants %>%
     filter(vaf_FrTu >= min_tvaf) %>%
