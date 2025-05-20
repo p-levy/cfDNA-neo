@@ -26,18 +26,18 @@ arg10: purity cfDNA (ASCAT value or 'vaf' to use peak vaf)
 
 
 # VARIABLES
-patient <- args[1] #  patient <- "TIL012"
-variants_counts_path <- args[2] # variants_counts_path <- "/Users/plevy/Library/CloudStorage/OneDrive-VHIO/labagros/pierre/proj/collab/andrea/TIL012/TIL012_cfDNA_FrTu_variants_counts.tsv"
-outdir <- args[3] # outdir <- "/Users/plevy/Library/CloudStorage/OneDrive-VHIO/labagros/pierre/proj/collab/andrea/TIL012/"
+patient <- args[1] #  patient <- "GOIGROS001"
+variants_counts_path <- args[2] # variants_counts_path <- "/Users/plevy/Library/CloudStorage/OneDrive-VHIO/labagros/pierre/proj/collab/andrea/GOIGROS001/variants_goi001_counts.tsv"
+outdir <- args[3] # outdir <- "/Users/plevy/Library/CloudStorage/OneDrive-VHIO/labagros/pierre/proj/collab/andrea/GOIGROS001/min_callers_indels_2"
 # Load segment copy number data (ASCAT)
-segs_cfDNA <- fread(args[4]) # segs_cfDNA <- fread("/Volumes/datos_lab/ascat/TIL012/TIL012_cfDNA.segments_raw.txt")
-segs_FrTu <- fread(args[5]) # segs_FrTu <- fread("/Volumes/datos_lab/ascat/TIL012/TIL012_FrTu.segments_raw.txt")
+segs_cfDNA <- fread(args[4]) # segs_cfDNA <- fread("/Volumes/datos_lab/ascat/GOIGROS001/GOIGROS001_cfDNA.segments_raw.txt")
+segs_FrTu <- fread(args[5]) # segs_FrTu <- fread("/Volumes/datos_lab/ascat/GOIGROS001/GOIGROS001_FrTu.segments_raw.txt")
 # Load exome bed file (SureSelect V6+UTR padded)
-bed_exome <- fread(args[6]) # bed_exome <- fread("/Volumes/datos_lab/References/References/intervals/hg38_V6+UTR/S07604624_hs_hg38/S07604624_Padded.noheader.bed")
-pipeline_excel <- args[7] # pipeline_excel <- "/Volumes/datos_lab/hla_pipeline/processed_jonatan/NEXTGEN_TIL/TIL012/hg38_v1.0.1/overlap_merge/overlap_final.txt"
-immunogenic <- args[8] # comma-sep list of immunogenic positions eg: immunogenic <- "none"
-purity_FrTu <- args[9] # purity_FrTu <- 0.81 # Used ASCAT purity  Write "vaf" if peak_vaf has to be used!
-purity_cfDNA <- args[10] # purity_cfDNA <- 0.32 # Used ASCAT purity #2*peak_vaf_cfDNA Write "vaf" if peak_vaf has to be used!
+bed_exome <- fread(args[6]) # bed_exome <- fread("/Volumes/datos_lab/References/References/intervals/hg19_V6+UTR/S07604624_hs_hg19/S07604624_Padded.noheader.bed")
+pipeline_excel <- args[7] # pipeline_excel <- "/Volumes/datos_lab/hla_pipeline/processed_jared_other/1_20220504_new_results_clonality_lohhla_jared/1000060/Variants/2022-04-11_analysis_v2.0/1000060_Apr_11_2022_analysis.xlsx"
+immunogenic <- args[8] # comma-sep list of immunogenic positions eg: immunogenic <- "14:75373266;3:108303992;X:153032967"
+purity_FrTu <- args[9] # purity_FrTu <- 0.41 # Used ASCAT purity  Write "vaf" if peak_vaf has to be used!
+purity_cfDNA <- args[10] # purity_cfDNA <- 0.42 # Used ASCAT purity #2*peak_vaf_cfDNA Write "vaf" if peak_vaf has to be used!
 
 system(paste0("mkdir -p ", outdir))
 setwd(outdir)
@@ -65,8 +65,6 @@ if (grepl("GOI|Motri", patient)) {
             n_callers.FrTu = ifelse(set.FrTu == "Intersection", 4, length(str_split(set.FrTu, "-")[[1]])),
             n_callers.cfDNA = ifelse(set.cfDNA == "Intersection", 4, length(str_split(set.cfDNA, "-")[[1]]))
         )
-} else {
-    variants <- variants %>% dplyr::rename(n_callers.FrTu = ncallers_FrTu, n_callers.cfDNA = ncallers_cfDNA)
 }
 
 # Filter variants
@@ -81,7 +79,7 @@ min_tvaf <- 0.03
 min_alt <- 4
 min_cov <- 9
 min_callers_snv <- 2
-min_callers_indels <- 1
+min_callers_indels <- 2
 
 variants_FrTu <- variants %>%
     filter(vaf_FrTu >= min_tvaf) %>%
@@ -323,3 +321,4 @@ write.table(sif, file = "MySimulation_input.sif", quote = F, row.names = F, sep 
 
 # Export table
 write.table(ccf, file = paste0(patient, "_FrTu_cfDNA_all_mutations_CCF.annot.tsv"), row.names = F, quote = F, sep = "\t")
+
