@@ -1,0 +1,21 @@
+#!/bin/bash
+
+x_map=$(samtools idxstats $1 | grep "X\s" | cut -f 3)
+x_len=4805599
+x_cov=$(echo "scale=3; ${x_map}/${x_len}" | bc)
+
+y_map=$(samtools idxstats $1 | grep "Y\s" | cut -f 3)
+y_len=373274
+y_cov=$(echo "scale=3; ${y_map}/${y_len}" | bc)
+
+ratio=$(echo "scale=2; ${x_cov}/${y_cov}" | bc)
+# echo $ratio
+
+BAM=$(basename ${1})
+PATIENT=$(echo ${BAM} | cut -d "_" -f1)
+
+if (( $(echo "$ratio > 4.00" | bc -l) )); then
+ printf "${PATIENT}\tXX\n"
+else
+ printf "${PATIENT}\tXY\n"
+fi
