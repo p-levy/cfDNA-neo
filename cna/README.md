@@ -1,4 +1,4 @@
-# CNA analysis tumor and cfDNA WES data with ASCAT 
+# CNA analysis from tumor and cfDNA WES data with ASCAT 
 
 ## Download WES reference files
 See https://github.com/VanLoo-lab/ascat/tree/master/ReferenceFiles/WES
@@ -134,31 +134,31 @@ done
 ```
 cd cna
 
-bash RUN_docker.sh \
-	PATIENT \
-	THREADS \
-	SEX \
-	TBAM_PATH \
-	NBAM_PATH \
-	OUTDIR \
-	DNA \
-	GENOME \
-	BED_PATH \
-	SKIP_NORMAL_PROCESS
+cna-docker \
+	patient \
+	threads \
+	sex \
+	tbam_path \
+	nbam_path \
+	outdir \
+	dna \
+	genome \
+	bed_path \
+	skip_normal_process
 ```
 🐳 For the **Docker** version make sure the paths (bam and bed files) are **absolute paths**. 
 
 **Usage**: <br>
-`PATIENT` : patient / sample name <br>
-`THREADS` : number of CPUs to use when running ASCAT, e.g. 12 <br>
-`SEX` : `XX` or `XY` (Run `bash checksex bam_file` if unknown) <br>
-`TBAM_PATH` : path to tumor bam file <br>
-`NBAM_PATH` : path to normal/germline bam file <br>
-`OUTDIR` : desired output dir <br>
-`DNA` : type of DNA source (`FrTu`, for tumor biopsy / `cfDNA`) <br>
-`GENOME` : `hg19` or `hg38` <br>
-`BED_PATH` : path to exome bed file <br>
-`SKIP_NORMAL_PROCESS` : set to `TRUE` one if you already processed a tumor (FrTu or cfDNA) sample for this patient in a previous run, to not have to reprocess the normal bam with alleleCount, if not, set to`FALSE`. If set to `TRUE`, the `OUTDIR` has to be the same as in the previous run.
+`patient` : patient / sample name <br>
+`threads` : number of CPUs to use when running ASCAT, e.g. `12` <br>
+`sex` : `XX` or `XY` (Run `bash checksex bam_file` if unknown) <br>
+`tbam_path` : path to tumor bam file <br>
+`nbam_path` : path to normal/germline bam file <br>
+`outdir` : desired output dir <br>
+`dna` : type of dna source (`FrTu`, for tumor biopsy / `cfDNA`) <br>
+`genome` : `hg19` or `hg38` <br>
+`bed_path` : path to exome bed file <br>
+`skip_normal_process` : set to `TRUE` one if you already processed a tumor (FrTu or cfDNA) sample for this patient in a previous run, to not have to reprocess the normal bam with alleleCount, if not, set to`FALSE`. If set to `TRUE`, the `outdir` has to be the same as in the previous run.
 
 ## Run ASCAT (local)
 📁 Run this ASCAT wrapper from within the `cna` subdirectory
@@ -168,17 +168,17 @@ Used this version if both the ASCAT R package and alleleCount are installed loca
 ```
 cd cna
 
-bash RUN.sh \
-	PATIENT \
-	THREADS \
-	SEX \
-	TBAM_PATH \
-	NBAM_PATH \
-	OUTDIR \
-	DNA \
-	GENOME \
-	BED_PATH \
-	SKIP_NORMAL_PROCESS
+cna \
+	patient \
+	threads \
+	sex \
+	tbam_path \
+	nbam_path \
+	outdir \
+	dna \
+	genome \
+	bed_path \
+	skip_normal_process
 ```
 
 See **usage** above.

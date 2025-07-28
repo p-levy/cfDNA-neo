@@ -5,18 +5,26 @@
 by Garcia-Garijo A, Levy PLJ, Creus I et al. 2025
 
 ## CNA analysis
+Identification of somatic copy number alterations from sequencing data, including segmentation and tumor purity estimation, using [ASCAT](https://github.com/VanLoo-lab/ascat).
+
+> See [Readme](cna/README.md)
 
 ## Variant calling to counts 
+Processing of variant calls (VCF) and alignment (bam) files, to generate read count tables per variant for downstream analyses.
+
+> See [Readme](variant-counts/README.md)
 
 ## CCF / Variant copy number calculations
+Estimation of cancer cell fraction (CCF) / variant copy numbers, using allele-specific copy numbers and purity-adjusted models.
+
+> See [Readme](cna/README.md)
 
 ## Phylogenetic clonal reconstruction
+Inference of tumor clonal architecture and evolutionary relationships among subclones based on variant clustering using [CONIPHER](https://github.com/McGranahanLab/CONIPHER).
+
+> See [Readme](cna/README.md)
 
 ## Summary plots
+Visualization of key outputs such as **tumor mutation burden**, **clonality**, and **copy number changes**.
 
-### TMB
-### CCF
-### CNA
-#### Segment plots
-#### Heatmaps
-### Immunogenic variants
+> See [Readme](cna/README.md)

@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# Usage:
+# ./ccf --version 1 [args...]
+# ./ccf --version 2 [args...]
+# ./ccf --version 3 [args...]
+
+# Check if at least two arguments are passed
+if [[ $# -lt 2 ]]; then
+    echo "Usage:"
+    echo "$0 --version {1|2|3} [args...]"
+    exit 1
+fi
+
+# Parse version
+if [[ "$1" != "--version" ]]; then
+    echo "First argument must be --version"
+    exit 1
+fi
+
+version="$2"
+shift 2
+
+# Function to run Rscript
+run_rscript() {
+    local script="$1"
+    shift
+    echo "Running R script: $script"
+    echo "Arguments: $@"
+    Rscript "$script" "$@"
+}
+
+case "$version" in
+    1)
+        run_rscript "CCF_calculation_v1_merged.R" "$@"
+        ;;
+    2)
+        run_rscript "CCF_calculation_v2_twotumor.R" "$@"
+        ;;
+    3)
+        run_rscript "CCF_calculation_v3_single.R" "$@"
+        ;;
+    *)
+        echo "Unsupported version: $version"
+        echo "Supported versions: 1, 2, 3"
+        exit 1
+        ;;
+esac
