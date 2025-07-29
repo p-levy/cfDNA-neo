@@ -49,8 +49,8 @@ case "$version" in
         ;;
     3)
         if [[ $# -ne 9 ]]; then
-            echo "Version 3 requires 9 arguments:"
-            echo "patient_name vcf_path sample_type bam_tumor bam_normal min_caller_snv min_caller_indel outdir threads"
+            echo "Version 3 requires 5 arguments:"
+            echo "patient_name vcf_path tumor_name_vcf normal_name_vcf outdir"
             exit 1
         fi
         run_rscript "VCF_to_counts_v3_single.R" "$@"
