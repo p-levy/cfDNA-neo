@@ -1,0 +1,82 @@
+#!/bin/bash
+
+set -uex
+
+# Usage:
+# ./variant-counts-docker --version 1 [args...] # one merged vcf/tumor sample
+# ./variant-counts-docker --version 2 [args...] # two merged vcf/tumor samples
+# ./variant-counts-docker --version 3 [args...] # one single-caller vcf (oncoanalyser sage)
+
+# Check if at least two arguments are passed
+if [[ $# -lt 2 ]]; then
+    echo "Usage:"
+    echo "$0 --version {1|2|3} [args...]"
+    exit 1
+fi
+
+# Parse version
+if [[ "$1" != "--version" ]]; then
+    echo "First argument must be --version"
+    exit 1
+fi
+
+version="$2"
+shift 2
+
+# Function to run Rscript
+run_rscript() {
+    local script="$1"
+    shift
+    echo "Running R script via Docker: $script"
+    echo "Arguments: $@"
+
+    # Collect all paths that need to be mounted
+    local mounts=()
+    for arg in "$@"; do
+        if [[ -f "$arg" || -d "$arg" ]]; then
+            dir=$(dirname "$(realpath "$arg")")
+            mounts+=("-v" "$dir:$dir")
+        fi
+    done
+
+    # Add the current directory (script location) and output dir (last or second last arg)
+    mounts+=("-v" "$(pwd):$(pwd)")
+
+    docker run --rm \
+        "${mounts[@]}" \
+        -w "$(pwd)" \
+        plev/vcfr-deepsnv \
+        Rscript "$script" "$@"
+}
+
+case "$version" in
+    1)
+        if [[ $# -ne 9 ]]; then
+            echo "Version 1 requires 9 arguments:"
+            echo "patient_name vcf_path sample_type bam_tumor bam_normal min_caller_snv min_caller_indel outdir threads"
+            exit 1
+        fi
+        run_rscript "VCF_to_counts_v1_merged.R" "$@"
+        ;;
+    2)
+        if [[ $# -ne 12 ]]; then
+            echo "Version 2 requires 12 arguments:"
+            echo "patient_name vcf_path_1 sample_type_1 bam_tumor_1 vcf_path_2 sample_type_2 bam_tumor_2 bam_normal min_caller_snv min_caller_indel outdir threads"
+            exit 1
+        fi
+        run_rscript "VCF_to_counts_v2_twotumor.R" "$@"
+        ;;
+    3)
+        if [[ $# -ne 5 ]]; then
+            echo "Version 3 requires 5 arguments:"
+            echo "patient_name vcf_path tumor_name_vcf normal_name_vcf outdir"
+            exit 1
+        fi
+        run_rscript "VCF_to_counts_v3_single.R" "$@"
+        ;;
+    *)
+        echo "Unsupported version: $version"
+        echo "Supported versions: 1, 2, 3"
+        exit 1
+        ;;
+esac

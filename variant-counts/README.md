@@ -2,8 +2,20 @@
 Scripts used to generate **ALT/REF read count tables** for variants called for any sample type (tumor, cfDNA and Normal DNA), using [vcfR](https://github.com/knausb/vcfR) and the `bam2R`function from the [deepSNV](https://github.com/gerstung-lab/deepSNV) R library. 
 
 ```
-variant-counts --version {1|2|3} [args...]
+./variant-counts --version {1|2|3} [args...]
 ```
+
+**Requirements** <br>
+**R** with the following installed libraries:<br>
+[tidyverse](https://www.tidyverse.org/) <br>
+[vcfR](https://github.com/knausb/vcfR) <br>
+[deepSNV](https://github.com/gerstung-lab/deepSNV) <br>
+[foreach](https://cran.r-project.org/web/packages/foreach/index.html) <br>
+[doParallel](https://cran.r-project.org/web/packages/doParallel/index.html)
+
+**OR use Docker version 🐳**
+>Use `./variant-counts-docker` instead of `./variant-counts`
+
 See below for **version-specific usage**.
 
 ## Version 1: Merged VCF
@@ -11,7 +23,7 @@ Process a merged VCF from multiple variant callers. VCF must contain a  `set` **
 
 ### How To Run
 ```
-variant-counts --version 1 \
+./variant-counts(-docker) --version 1 \
 	patient_name \
 	vcf_path \
 	sample_type \
@@ -38,7 +50,7 @@ Process **two** somatic variant calls (from optionally **merged** VCF files), ge
 
 ### How To Run
 ```
-variant-counts --version 2 \
+./variant-counts(-docker) --version 2 \
 	patient_name \
 	vcf_path_1 \
 	sample_type_1 \
@@ -72,7 +84,7 @@ Process a somatic variant call file (VCF) obtained from the variant caller **Sag
 
 ### How To Run
 ```
-variant-counts --version 3 \
+./variant-counts(-docker) --version 3 \
 	patient_name \
 	vcf_path \
 	tumor_name_vcf \
@@ -86,3 +98,6 @@ variant-counts --version 3 \
 `tumor_name_vcf` : tumor sample name as in VCF file <br>
 `normal_name_vcf` : normal sample name as in VCF file <br>
 `outdir` : output directory <br>
+
+## 
+
