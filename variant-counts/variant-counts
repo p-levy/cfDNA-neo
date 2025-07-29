@@ -48,7 +48,7 @@ case "$version" in
         run_rscript "VCF_to_counts_v2_twotumor.R" "$@"
         ;;
     3)
-        if [[ $# -ne 9 ]]; then
+        if [[ $# -ne 5 ]]; then
             echo "Version 3 requires 5 arguments:"
             echo "patient_name vcf_path tumor_name_vcf normal_name_vcf outdir"
             exit 1
