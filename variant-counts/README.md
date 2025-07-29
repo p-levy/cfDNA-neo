@@ -68,9 +68,7 @@ variant-counts --version 2 \
 
 ## Version 3: Single-caller VCF (Sage/Pave)
 
-**UNDER DEVELOPMENT** ⚗️
-
-Process a somatic variant call file (VCF) obtained from **only one variant caller** (e.g. **Sage**, from the [nf-core/oncoanalyser](https://github.com/nf-core/oncoanalyser) pipeline). Counts are obtained from the VCF file relevant fields (`AD` and `DP`). 
+Process a somatic variant call file (VCF) obtained from the variant caller **Sage** and annotated by **Pave** (from the [nf-core/oncoanalyser](https://github.com/nf-core/oncoanalyser) pipeline). Counts are not re-computed with `bam2R` but instead extracted directly from the VCF file relevant fields (`AD` and `DP`) and variant allele frequencies from the `AF` field. 
 
 ### How To Run
 ```
@@ -81,3 +79,10 @@ variant-counts --version 3 \
 	normal_name_vcf \
 	outdir \
 ```
+
+**Usage**: <br>
+`patient_name` : patient / sample name <br>
+`vcf_path` : path to vcf file (`sage.somatic.pave.vcf.gz`) <br>
+`tumor_name_vcf` : tumor sample name as in VCF file <br>
+`normal_name_vcf` : normal sample name as in VCF file <br>
+`outdir` : output directory <br>

@@ -205,4 +205,4 @@ ccf <- variants_counts %>%
 ccf <- ccf %>% distinct(CHROM, POS, REF, ALT, .keep_all = TRUE)
 
 # Export table
-write.table(outdir, "/", ccf, file = paste0(outdir, "/", patient, "_", Tumor_1_type, "_", Tumor_2_type, "_all_mutations_CCF.tsv"), row.names = F, quote = F, sep = "\t")
+write.table(ccf, file = paste0(outdir, "/", patient, "_", sample_type_1, "_", sample_type_2, "_all_mutations_CCF.tsv"), row.names = F, quote = F, sep = "\t")

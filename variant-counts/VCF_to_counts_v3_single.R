@@ -23,7 +23,7 @@ suppressPackageStartupMessages(library("tidyverse"))
 patient_name <- args[1] # test: patient_name <- "test"
 vcf_path <- args[2] # test: vcf_path <- "../test/vcf/test_sage.pave.vcf.gz"
 tumor_name_vcf <- arg[3] # test: tumor_name_vcf <- "TEST_T"
-tumor_name_vcf <- arg[4] # test: tumor_name_vcf <- "TEST_N"
+normal_name_vcf <- arg[4] # test: tumor_name_vcf <- "TEST_N"
 outdir <- args[5] # test: outdir <- "../test/variant-counts"
 
 # Process VCF

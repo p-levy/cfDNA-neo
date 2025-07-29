@@ -17,14 +17,14 @@ Processing of variant calls (VCF) and alignment (bam) files, to generate read co
 ## CCF / Variant copy number calculations
 Estimation of cancer cell fraction (CCF) / variant copy numbers, using allele-specific copy numbers and purity-adjusted models.
 
-> See [Readme](cna/README.md)
+> See [Readme](ccf/README.md)
 
 ## Phylogenetic clonal reconstruction
-Inference of tumor clonal architecture and evolutionary relationships among subclones based on variant clustering using [CONIPHER](https://github.com/McGranahanLab/CONIPHER).
+Inference of tumor clonal architecture and evolutionary relationships among subclones based on variant clustering performed with [CONIPHER](https://github.com/McGranahanLab/CONIPHER).
 
-> See [Readme](cna/README.md)
+> See [Readme](phylo/README.md)
 
 ## Summary plots
 Visualization of key outputs such as **tumor mutation burden**, **clonality**, and **copy number changes**.
 
-> See [Readme](cna/README.md)
+> See [Readme](plots/README.md)
