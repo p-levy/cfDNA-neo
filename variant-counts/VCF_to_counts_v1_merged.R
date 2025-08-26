@@ -100,4 +100,4 @@ variants_counts <- foreach(i = 1:nrow(variants), .combine = rbind, .packages = c
 stopCluster(cl) # Stop the cluster
 
 # Write the results
-write.table(variants_counts, file = paste0(outdir, "/", patient_name, "merged_variants_counts.tsv"), quote = FALSE, sep = "\t", row.names = FALSE)
+write.table(variants_counts, file = paste0(outdir, "/", patient_name, "_merged_variants_counts.tsv"), quote = FALSE, sep = "\t", row.names = FALSE)
