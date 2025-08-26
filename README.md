@@ -2,7 +2,7 @@
 
 >Scripts used in the analysis included in the manuscript entitled: <br>
 ***Peripheral blood as the Sole Source for Cancer Neoantigen and reactive T cell discovery***
-by Garcia-Garijo A, Levy PLJ, Creus I et al. 2025
+by Garcia-Garijo A et al. 2025
 
 ## CNA analysis
 Identification of somatic copy number alterations from sequencing data, including segmentation and tumor purity estimation, using [ASCAT](https://github.com/VanLoo-lab/ascat).
