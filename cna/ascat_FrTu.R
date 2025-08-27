@@ -15,6 +15,7 @@ args6: n cores to use
 args7: sex ('XX' or 'XY')
 args8: genome (hg19 or hg38)
 args9: outdir
+args10: skip normal (TRUE/FALSE)
 
       ")
   quit()
@@ -35,7 +36,7 @@ genome=args[8] # hg19 or hg38
 genome_number = gsub("hg", "", genome)
 bedfile_path <- gsub("hg\\d{2}", genome, bedfile_path)
 outdir <- args[9]
-skip_normal_process=as.logical(args[9])  # converts "TRUE"/"FALSE" to logical
+skip_normal_process <- as.logical(args[10])  # converts "TRUE"/"FALSE" to logical
 
 setwd(outdir)
 
