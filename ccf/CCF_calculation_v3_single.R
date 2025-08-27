@@ -93,7 +93,7 @@ if (!is.null(args$nsm_annot)) {
 
 # OPTIONNAL: Add info from Neo output if provided
 if (!is.null(args$neo)) {
-	variants_counts <- neo %>% full_join(variants_counts %>% mutate(coding_consequence = "non_synonymous"), by = "VariantInfo")
+	variants_counts <- variants_counts %>% left_join(neo %>% mutate(coding_consequence = "non_synonymous"), by = "VariantInfo")
 	variants_counts$coding_consequence <- replace_na(variants_counts$coding_consequence, "synonymous_or_noncoding")
 }
 
