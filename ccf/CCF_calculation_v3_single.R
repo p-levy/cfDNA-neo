@@ -87,13 +87,13 @@ segs$chr <- standardize_chr(segs$chr)
 if (!is.null(args$nsm_annot)) {
     # Standardize chromosome names in nsm_annot
     nsm_annot$CHROM <- standardize_chr(nsm_annot$CHROM)
-    variants_counts <- variants_counts %>% left_join(nsm_annot %>% mutate(coding_consequence = "non_synonymous"), by = c("CHROM", "POS", "REF", "ALT"))
+    variants_counts <- nsm_annot %>% mutate(coding_consequence = "non_synonymous") %>% full_join(variants_counts, by = c("CHROM", "POS", "REF", "ALT")) %>% arrange(CHROM, POS)
     variants_counts$coding_consequence <- replace_na(variants_counts$coding_consequence, "synonymous_or_noncoding")
 }
 
 # OPTIONNAL: Add info from Neo output if provided
 if (!is.null(args$neo)) {
-	variants_counts <- variants_counts %>% left_join(neo %>% mutate(coding_consequence = "non_synonymous"), by = "VariantInfo")
+	variants_counts <- neo %>% mutate(coding_consequence = "non_synonymous") %>% full_join(variants_counts, by = "VariantInfo") %>% arrange(CHROM, POS)
 	variants_counts$coding_consequence <- replace_na(variants_counts$coding_consequence, "synonymous_or_noncoding")
 }
 
@@ -160,7 +160,7 @@ ccf <- variants_counts %>%
     mutate(ccf = (vaf_Tumor / purity) * ((1 - purity) * 2 + purity * (nMajor  + nMinor)),
 	purity = purity)
 
-ccf <- ccf %>% distinct(CHROM, POS, REF, ALT, .keep_all = TRUE)
+ccf <- ccf %>% distinct()
 
 # Export table
 write.table(ccf, file = paste0(outdir, "/", patient, "_all_mutations_CCF.tsv"), row.names = F, quote = F, sep = "\t")

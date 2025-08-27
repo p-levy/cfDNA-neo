@@ -150,7 +150,7 @@ variants_counts <- rbind(variants_Tumor_1, variants_Tumor_2, variants_shared)
 if (!is.null(args$nsm_annot)) {
     # Standardize chromosome names in nsm_annot
     nsm_annot$CHROM <- standardize_chr(nsm_annot$CHROM)
-    variants_counts <- variants_counts %>% left_join(nsm_annot %>% mutate(coding_consequence = "non_synonymous"), by = c("CHROM", "POS", "REF", "ALT"))
+    variants_counts <- nsm_annot %>% mutate(coding_consequence = "non_synonymous") %>% full_join(variants_counts, by = c("CHROM", "POS", "REF", "ALT")) %>% arrange(CHROM, POS)
     variants_counts$coding_consequence <- replace_na(variants_counts$coding_consequence, "synonymous_or_noncoding")
 }
 # OPTIONNAL: Use bedtoolsr to filter the mutations to keep only the ones falling in the exome bed file
@@ -242,7 +242,7 @@ ccf <- variants_counts %>%
     mutate(!!paste0("ccf_", sample_type_2) := (vaf_Tumor_2 / purity_Tumor_2) * ((1 - purity_Tumor_2) * 2 + purity_Tumor_2 * (get(paste0("nMajor_", sample_type_2))  + get(paste0("nMinor_", sample_type_2)))),
     !!paste0("purity_", sample_type_2) := purity_Tumor_2)
 
-ccf <- ccf %>% distinct(CHROM, POS, REF, ALT, .keep_all = TRUE)
+ccf <- ccf %>% distinct()
 
 # Export table
 write.table(ccf, file = paste0(outdir, "/", patient, "_", sample_type_1, "_", sample_type_2, "_all_mutations_CCF.tsv"), row.names = F, quote = F, sep = "\t")
