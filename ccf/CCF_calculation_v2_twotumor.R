@@ -9,6 +9,17 @@ suppressPackageStartupMessages({
   })
 })
 
+# Function to standardize chromosome names
+standardize_chr <- function(chr_vector) {
+  # Convert to character first
+  chr_vector <- as.character(chr_vector)
+  
+  # Remove "chr" prefix if present
+  chr_vector <- gsub("^chr", "", chr_vector, ignore.case = TRUE)
+  
+  return(chr_vector)
+}
+
 # Argument parser
 parser <- ArgumentParser(description = "Estimate cancer cell fraction (CCF) from variant allele frequencies, purity and CNA profiles")
 
@@ -99,6 +110,13 @@ variants <- variants %>%
         n_callers.Tumor_2 = ifelse(get(paste0("set_", sample_type_2)) == "Intersection", 4, length(str_split(get(paste0("set_", sample_type_2)), "-")[[1]]))
     )
 
+# Standardize chromosome names in variants
+variants$CHROM <- standardize_chr(variants$CHROM)
+
+# Standardize chromosome names in segs (assuming chromosome is in column 2)
+segs_Tumor_1$chr <- standardize_chr(segs_Tumor_1$chr)
+segs_Tumor_2$chr <- standardize_chr(segs_Tumor_2$chr)
+
 # Apply filters (on tvaf, min_cov, min_callers...)
 variants_Tumor_1 <- variants %>%
     filter(vaf_Tumor_1 >= min_tvaf) %>%
@@ -130,40 +148,62 @@ variants_counts <- rbind(variants_Tumor_1, variants_Tumor_2, variants_shared)
 
 # OPTIONNAL: Add NSM info (+ wt/mut epitope sequences, immunogenicity, etc.)
 if (!is.null(args$nsm_annot)) {
-    variants_counts$CHROM <- as.character(variants_counts$CHROM)
+    # Standardize chromosome names in nsm_annot
+    nsm_annot$CHROM <- standardize_chr(nsm_annot$CHROM)
     variants_counts <- variants_counts %>% left_join(nsm_annot %>% mutate(coding_consequence = "non_synonymous"), by = c("CHROM", "POS", "REF", "ALT"))
     variants_counts$coding_consequence <- replace_na(variants_counts$coding_consequence, "synonymous_or_noncoding")
 }
 # OPTIONNAL: Use bedtoolsr to filter the mutations to keep only the ones falling in the exome bed file
 if (!is.null(args$bed_exome)) {
+    # Standardize chromosome names in bed_exome
+    bed_exome[[1]] <- standardize_chr(bed_exome[[1]])
+
     bed_mut <- variants_counts %>%
         dplyr::select(1, 2) %>%
         mutate(end = POS) %>%
         dplyr::rename(start = POS, chrom = CHROM)
     bed_mut_exome <- bt.intersect(bed_mut, bed_exome, u = TRUE) # u=TRUE to only report one entry per mutation, if at least it is in one of the bed intervals
     bed_mut_exome <- bed_mut_exome %>% dplyr::rename(CHROM = V1, POS = V2)
-    bed_mut_exome$CHROM <- as.character(bed_mut_exome$CHROM)
+    bed_mut_exome$CHROM <- standardize_chr(bed_mut_exome$CHROM)
     variants_counts <- bed_mut_exome %>% 
         dplyr::select(CHROM, POS) %>% 
         left_join(variants_counts, by = c("CHROM", "POS"))
+
+	# Get the copy number from the segment files and annotate the mutation table
+	bed_seg_Tumor_1 <- segs_Tumor_1 %>% dplyr::select(2:6)
+	intersect_Tumor_1 <- bt.intersect(bed_mut_exome, bed_seg_Tumor_1, wb = T)
+	intersect_Tumor_1 <- intersect_Tumor_1 %>%
+		dplyr::select(1, 2, 7, 8) %>%
+		dplyr::rename(CHROM = V1, POS = V2, !!paste0("nMajor_", sample_type_1) := V7, !!paste0("nMinor_", sample_type_1) := V8)
+
+	bed_seg_Tumor_2 <- segs_Tumor_2 %>% dplyr::select(2:6)
+	intersect_Tumor_2 <- bt.intersect(bed_mut_exome, bed_seg_Tumor_2, wb = T)
+	intersect_Tumor_2 <- intersect_Tumor_2 %>%
+		dplyr::select(1, 2, 7, 8) %>%
+		dplyr::rename(CHROM = V1, POS = V2, !!paste0("nMajor_", sample_type_2) := V7, !!paste0("nMinor_", sample_type_2) := V8)
+} else {
+	bed_mut <- variants_counts %>%
+        dplyr::select(1, 2) %>%
+        mutate(end = POS) %>%
+        dplyr::rename(start = POS, chrom = CHROM)
+
+	# Get the copy number from the segment files and annotate the mutation table
+	bed_seg_Tumor_1 <- segs_Tumor_1 %>% dplyr::select(2:6)
+	intersect_Tumor_1 <- bt.intersect(bed_mut, bed_seg_Tumor_1, wb = T)
+	intersect_Tumor_1 <- intersect_Tumor_1 %>%
+		dplyr::select(1, 2, 7, 8) %>%
+		dplyr::rename(CHROM = V1, POS = V2, !!paste0("nMajor_", sample_type_1) := V7, !!paste0("nMinor_", sample_type_1) := V8)
+
+	bed_seg_Tumor_2 <- segs_Tumor_2 %>% dplyr::select(2:6)
+	intersect_Tumor_2 <- bt.intersect(bed_mut, bed_seg_Tumor_2, wb = T)
+	intersect_Tumor_2 <- intersect_Tumor_2 %>%
+		dplyr::select(1, 2, 7, 8) %>%
+		dplyr::rename(CHROM = V1, POS = V2, !!paste0("nMajor_", sample_type_2) := V7, !!paste0("nMinor_", sample_type_2) := V8)
 }
 
-# Get the copy number from the segment files and annotate the mutation table
-bed_seg_Tumor_1 <- segs_Tumor_1 %>% dplyr::select(2:6)
-intersect_Tumor_1 <- bt.intersect(bed_mut_exome, bed_seg_Tumor_1, wb = T)
-intersect_Tumor_1 <- intersect_Tumor_1 %>%
-    dplyr::select(1, 2, 7, 8) %>%
-    dplyr::rename(CHROM = V1, POS = V2, !!paste0("nMajor_", sample_type_1) := V7, !!paste0("nMinor_", sample_type_1) := V8)
-
-bed_seg_Tumor_2 <- segs_Tumor_2 %>% dplyr::select(2:6)
-intersect_Tumor_2 <- bt.intersect(bed_mut_exome, bed_seg_Tumor_2, wb = T)
-intersect_Tumor_2 <- intersect_Tumor_2 %>%
-    dplyr::select(1, 2, 7, 8) %>%
-    dplyr::rename(CHROM = V1, POS = V2, !!paste0("nMajor_", sample_type_2) := V7, !!paste0("nMinor_", sample_type_2) := V8)
-
 # Final mutation table with CN annotated
-intersect_Tumor_1$CHROM <- as.character(intersect_Tumor_1$CHROM)
-intersect_Tumor_2$CHROM <- as.character(intersect_Tumor_2$CHROM)
+intersect_Tumor_1$CHROM <- standardize_chr(intersect_Tumor_1$CHROM)
+intersect_Tumor_2$CHROM <- standardize_chr(intersect_Tumor_2$CHROM)
 variants_counts <- variants_counts %>%
     left_join(intersect_Tumor_1, by = c("CHROM", "POS")) %>%
     left_join(intersect_Tumor_2, by = c("CHROM", "POS"))
