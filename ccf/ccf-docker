@@ -1,0 +1,65 @@
+#!/bin/bash
+
+# Usage:
+# ./ccf-docker --version 1 [args...]
+# ./ccf-docker --version 2 [args...]
+# ./ccf-docker --version 3 [args...]
+
+# Check if at least two arguments are passed
+if [[ $# -lt 2 ]]; then
+    echo "Usage:"
+    echo "$0 --version {1|2|3} [args...]"
+    exit 1
+fi
+
+# Parse version
+if [[ "$1" != "--version" ]]; then
+    echo "First argument must be --version"
+    exit 1
+fi
+
+version="$2"
+shift 2
+
+# Function to run Rscript
+run_rscript() {
+    local script="$1"
+    shift
+    echo "Running R script via Docker: $script"
+    echo "Arguments: $@"
+
+    # Collect all paths that need to be mounted
+    local mounts=()
+    for arg in "$@"; do
+        if [[ -f "$arg" || -d "$arg" ]]; then
+            dir=$(dirname "$(realpath "$arg")")
+            mounts+=("-v" "$dir:$dir")
+        fi
+    done
+
+    # Add the current directory (script location) and output dir (last or second last arg)
+    mounts+=("-v" "$(pwd):$(pwd)")
+
+    docker run --rm \
+        "${mounts[@]}" \
+        -w "$(pwd)" \
+        plev/bedtoolsr \
+    Rscript "$script" "$@"
+}
+
+case "$version" in
+    1)
+        run_rscript "CCF_calculation_v1_merged.R" "$@"
+        ;;
+    2)
+        run_rscript "CCF_calculation_v2_twotumor.R" "$@"
+        ;;
+    3)
+        run_rscript "CCF_calculation_v3_single.R" "$@"
+        ;;
+    *)
+        echo "Unsupported version: $version"
+        echo "Supported versions: 1, 2, 3"
+        exit 1
+        ;;
+esac
