@@ -3,7 +3,7 @@
 ## Download WES reference files
 See https://github.com/VanLoo-lab/ascat/tree/master/ReferenceFiles/WES
 
-> Download the above-metioned files for both hg19 and hg38 in a single tar archive [here](https://vhio365-my.sharepoint.com/:u:/g/personal/plevy_vhio_net/ERd5t9sUYV5FnddguCqq0g8B7RRJggCKKkmqC0GbStaXeg?e=WdDOlM)
+> Download the above-metioned files for both hg19 and hg38 in a single tar archive [here](https://vhio365-my.sharepoint.com/:u:/g/personal/plevy_vhio_net/ERd5t9sUYV5FnddguCqq0g8B7RRJggCKKkmqC0GbStaXeg?e=WdDOlM). If downloading via the terminal, add **"&download=1"** to the end of the OneDrive link. E.g. `wget -O ascat_refs.tar.gz "https://vhio365-my.sharepoint.com/:u:/g/personal/plevy_vhio_net/ERd5t9sUYV5FnddguCqq0g8B7RRJggCKKkmqC0GbStaXeg?e=WdDOlM&download=1"`
 
 Extract `ascat_refs.tar.gz` archive into the `cna` directory.
 ```
