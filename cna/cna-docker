@@ -47,7 +47,7 @@ docker run --rm \
 	-v ${BED_DIR}:/bed_dir \
 	-v ${OUTDIR}:/ascat \
 	-v ${PWD}:/scripts \
-	-v ascat_refs:/ref \
+	-v $(realpath "ascat_refs"):/ref \
 	-w /ascat \
     plev/ascat:3.1.2 \
     Rscript /scripts/ascat_${DNA}.R \
