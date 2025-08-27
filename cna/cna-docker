@@ -44,7 +44,7 @@ mkdir -p ${OUTDIR}
 docker run --rm \
 	-v ${TBAM_DIR}:/tbam_dir \
 	-v ${NBAM_DIR}:/nbam_dir \
-	-v ${BED_PATH}:/bed_dir \
+	-v ${BED_DIR}:/bed_dir \
 	-v ${OUTDIR}:/ascat \
 	-v ${PWD}:/scripts \
 	-v ascat_refs:/ref \
