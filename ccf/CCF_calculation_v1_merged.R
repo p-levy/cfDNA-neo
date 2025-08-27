@@ -112,7 +112,7 @@ variants_counts <- variants %>%
 if (!is.null(args$nsm_annot)) {
     # Standardize chromosome names in nsm_annot
     nsm_annot$CHROM <- standardize_chr(nsm_annot$CHROM)
-    variants_counts <- nsm_annot %>% mutate(coding_consequence = "non_synonymous") %>% full_join(variants_counts, by = c("CHROM", "POS", "REF", "ALT")) %>% arrange(CHROM, POS)
+    variants_counts <- nsm_annot %>% mutate(coding_consequence = "non_synonymous") %>% full_join(variants_counts, by = c("CHROM", "POS", "REF", "ALT")) %>% arrange(suppressWarnings(as.numeric(CHROM)), as.numeric(POS))
     variants_counts$coding_consequence <- replace_na(variants_counts$coding_consequence, "synonymous_or_noncoding")
 }
 
