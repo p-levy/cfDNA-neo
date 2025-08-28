@@ -1,8 +1,8 @@
 # Phylogenetic clonal reconstruction using CONIPHER
 
-## Create CONIPHER `inputTSV` from previous step's output 
+## Create CONIPHER `inputTSV` from `ccf --version 2` step's output 
 
-Requires a two-tumor sample `all_mutations_CCF.tsv`file (`ccf --version 2` output). 
+⚠️ Requires a two-tumor sample `all_mutations_CCF.tsv`file (`ccf --version 2` output). 
 
 ### How To Run
 ```
