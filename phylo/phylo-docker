@@ -2,6 +2,7 @@
 
 # Point to the run_conipher.R script to run
 CONIPHER_SCRIPT=$(realpath "${1}")
+shift # Remove the script path from arguments
 
 # Function to run Rscript
 run_rscript() {
