@@ -22,12 +22,12 @@ set -uex
 PATIENT=${1}
 THREADS=${2}
 SEX=${3}
-TBAM_PATH=${4}
-NBAM_PATH=${5}
+TBAM_PATH=$(realpath "${4}")
+NBAM_PATH=$(realpath "${5}")
 OUTDIR=${6}
 DNA=${7}
 GENOME=${8}
-BED_PATH=${9}
+BED_PATH=$(realpath "${9}")
 SKIP_NORMAL_PROCESS=${10}
 
 TBAM_DIR=$(dirname ${TBAM_PATH})

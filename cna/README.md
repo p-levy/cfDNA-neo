@@ -129,12 +129,12 @@ for i in {1..22} X; do
 done
 ```
 
-## Run ASCAT (Docker version)
+## Run ASCAT (🐳 Docker version)
 📁 Run this ASCAT wrapper from within the `cna` subdirectory
 ```
 cd cna
 
-cna-docker \
+./cna-docker \
 	patient \
 	threads \
 	sex \
@@ -146,8 +146,6 @@ cna-docker \
 	bed_path \
 	skip_normal_process
 ```
-🐳 For the **Docker** version make sure the paths (bam and bed files) are **absolute paths**. 
-
 **Usage**: <br>
 `patient` : patient / sample name <br>
 `threads` : number of CPUs to use when running ASCAT, e.g. `12` <br>
@@ -168,7 +166,7 @@ Used this version if both the ASCAT R package and alleleCount are installed loca
 ```
 cd cna
 
-cna \
+./cna \
 	patient \
 	threads \
 	sex \
