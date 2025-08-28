@@ -205,8 +205,8 @@ if (!is.null(args$bed_exome)) {
 intersect_Tumor_1$CHROM <- standardize_chr(intersect_Tumor_1$CHROM)
 intersect_Tumor_2$CHROM <- standardize_chr(intersect_Tumor_2$CHROM)
 variants_counts <- variants_counts %>%
-    left_join(intersect_Tumor_1, by = c("CHROM", "POS")) %>%
-    left_join(intersect_Tumor_2, by = c("CHROM", "POS"))
+    left_join(intersect_Tumor_1, by = c("CHROM", "POS"), relationship = "many-to-many") %>%
+    left_join(intersect_Tumor_2, by = c("CHROM", "POS"), relationship = "many-to-many")
 
 # Add CCF calculation
 if (str_to_lower(purity_Tumor_1) == "vaf") {

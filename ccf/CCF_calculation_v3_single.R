@@ -142,7 +142,7 @@ if (!is.null(args$bed_exome)) {
 # Final mutation table with CN annotated
 intersect_Tumor$CHROM <- standardize_chr(intersect_Tumor$CHROM)
 variants_counts <- variants_counts %>%
-    left_join(intersect_Tumor, by = c("CHROM", "POS"))
+    left_join(intersect_Tumor, by = c("CHROM", "POS"), relationship = "many-to-many")
 
 # Add CCF calculation
 if (str_to_lower(purity) == "vaf") {
