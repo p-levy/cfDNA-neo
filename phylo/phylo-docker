@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Point to the run_conipher.R script to run
+CONIPHER_SCRIPT=${1}
+
 # Function to run Rscript
 run_rscript() {
     local script="$1"
@@ -40,4 +43,4 @@ if [[ -n "$out_dir" ]]; then
 fi
 
 # Run rscript (docker version)
-run_rscript "${scriptDir}run_conipher.R" "$@"
+run_rscript ${CONIPHER_SCRIPT} "$@"
