@@ -30,6 +30,22 @@ run_rscript() {
     Rscript "$script" "$@"
 }
 
+# Find --outdir argument and create the directory if specified
+outdir=""
+prev=""
+for arg in "$@"; do
+    if [[ "$prev" == "--outdir" ]]; then
+        outdir="$arg"
+        break
+    fi
+    prev="$arg"
+done
+
+if [[ -n "$outdir" ]]; then
+    echo "Creating output directory: $outdir"
+    mkdir -p "$outdir"
+fi
+
 case "$version" in
     1)
         run_rscript "CCF_calculation_v1_merged.R" "$@"
