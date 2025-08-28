@@ -1,8 +1,8 @@
 # Phylogenetic clonal reconstruction using [CONIPHER](https://github.com/McGranahanLab/CONIPHER)
 
-## Create CONIPHER `inputTSV` from `ccf --version 2` step's output 
+## Create CONIPHER `inputTSV` from `ccf --version` step's output 
 
-⚠️ Requires a two-tumor sample `all_mutations_CCF.tsv`file (`ccf --version 2` output). 
+⚠️ Requires a two-tumor sample `all_mutations_CCF.tsv`file (`ccf --version` output). 
 
 ### How To Run
 ```
@@ -23,13 +23,13 @@ options:
   --ccf CCF             all_mutations_CCF.tsv
   --outdir OUTDIR       Output directory
   --sample_type_1 SAMPLE_TYPE_1
-                        Sample type for Tumor 1 (e.g. FrTu or cfDNA)
+                        Sample type for Tumor (e.g. FrTu or cfDNA)
   --sample_type_2 SAMPLE_TYPE_2
-                        Sample type for Tumor 1 (e.g. FrTu or cfDNA)
+                        Sample type for Tumor (e.g. FrTu or cfDNA)
   --ploidy_Tumor_1 PLOIDY_TUMOR_1
-                        Ploidy for Tumor 1
+                        Ploidy for Tumor
   --ploidy_Tumor_2 PLOIDY_TUMOR_2
-                        Ploidy for Tumor 2
+                        Ploidy for Tumor
 ```
 
 ## Run CONIPHER (🐳 Docker version)
@@ -136,3 +136,9 @@ Other options (from run_conipher.R):
                 Should alternative trees be explored
 
 ```
+
+### Refer to CONIPHER protocol paper for details on parameters and outputs
+> [**CONIPHER: a computational framework for scalable phylogenetic reconstruction with error correction**](https://doi.org/10.1038/s41596-023-00913-9) <br>
+Kristiana Grigoriadis, Ariana Huebner, Abigail Bunkum, Emma Colliver, Alexander M Frankell, Mark S Hill, Kerstin Thol, Nicolai J Birkbak, Charles Swanton, Simone Zaccaria, Nicholas McGranahan <br>
+***Nat Protoc** 2024 Jan;19(1):159-183. doi: 10.1038/s41596-023-00913-9*
+
