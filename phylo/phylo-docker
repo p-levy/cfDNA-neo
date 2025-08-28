@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Function to run Rscript
+run_rscript() {
+    local script="$1"
+    shift
+    echo "Running R script via Docker: $script"
+    echo "Arguments: $@"
+
+    # Collect all paths that need to be mounted
+    local mounts=()
+    for arg in "$@"; do
+        if [[ -f "$arg" || -d "$arg" ]]; then
+            dir=$(dirname "$(realpath "$arg")")
+            mounts+=("-v" "$dir:$dir")
+        fi
+    done
+
+    docker run --rm \
+        "${mounts[@]}" \
+        -w "$(pwd)" \
+        quay.io/biocontainers/conipher:2.2.0--r40hdfd78af_0 \
+    Rscript "$script" "$@"
+}
+
+# Find --out_dir argument and create the directory if specified
+out_dir=""
+prev=""
+for arg in "$@"; do
+    if [[ "$prev" == "--out_dir" ]]; then
+        out_dir="$arg"
+        break
+    fi
+    prev="$arg"
+done
+
+if [[ -n "$out_dir" ]]; then
+    echo "Creating output directory: $out_dir"
+    mkdir -p "$out_dir"
+fi
+
+# Run rscript (docker version)
+run_rscript "${scriptDir}run_conipher.R" "$@"
