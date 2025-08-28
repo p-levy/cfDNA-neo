@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Point to the run_conipher.R script to run
-CONIPHER_SCRIPT=${1}
+CONIPHER_SCRIPT=$(realpath "${1}")
 
 # Function to run Rscript
 run_rscript() {
