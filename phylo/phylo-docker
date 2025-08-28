@@ -13,6 +13,9 @@ run_rscript() {
 
     # Collect all paths that need to be mounted
     local mounts=()
+	# Mount the script directory
+    script_dir=$(dirname "$script")
+    mounts+=("-v" "$script_dir:$script_dir")
     for arg in "$@"; do
         if [[ -f "$arg" || -d "$arg" ]]; then
             dir=$(dirname "$(realpath "$arg")")
