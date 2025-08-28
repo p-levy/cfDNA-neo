@@ -37,7 +37,7 @@ run_rscript() {
         fi
     done
 
-    # Add the current directory (script location) and output dir (last or second last arg)
+    # Add the current directory (script location)
     mounts+=("-v" "$(pwd):$(pwd)")
 
     docker run --rm \
