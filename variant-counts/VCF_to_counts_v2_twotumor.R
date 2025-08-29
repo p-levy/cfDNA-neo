@@ -97,7 +97,7 @@ variants <- variants %>% filter(!str_detect(ALT, "[ATCG],[ATCG]"))
 cl <- parallel::makeCluster(as.numeric(threads)) # Create a cluster using chosen number of cores
 registerDoParallel(cl)
 
-variants_counts <- foreach(i = 1:nrow(variants), .combine = rbind, .packages = c("deepSNV", "dplyr", "stringr")) %dopar% {
+variant_counts <- foreach(i = 1:nrow(variants), .combine = rbind, .packages = c("deepSNV", "dplyr", "stringr")) %dopar% {
     row <- variants[i, ]
     chrom <- row$CHROM
     pos <- as.numeric(row$POS)
@@ -142,7 +142,7 @@ variants_counts <- foreach(i = 1:nrow(variants), .combine = rbind, .packages = c
 stopCluster(cl) # Stop the cluster
 
 #  Change column names
-colnames(variants_counts) <- c(colnames(variants), paste0("REF_counts_", sample_type_1), paste0("ALT_counts_", sample_type_1), paste0("REF_counts_", sample_type_2), paste0("ALT_counts_", sample_type_2), "REF_counts_Normal", "ALT_counts_Normal")
+colnames(variant_counts) <- c(colnames(variants), paste0("REF_counts_", sample_type_1), paste0("ALT_counts_", sample_type_1), paste0("REF_counts_", sample_type_2), paste0("ALT_counts_", sample_type_2), "REF_counts_Normal", "ALT_counts_Normal")
 
 # Write the results
-write.table(variants_counts, file = paste0(outdir, "/", patient_name, "_", sample_type_1, "_", sample_type_2, "_variants_counts.tsv"), quote = FALSE, sep = "\t", row.names = FALSE)
+write.table(variant_counts, file = paste0(outdir, "/", patient_name, "_", sample_type_1, "_", sample_type_2, "_variant_counts.tsv"), quote = FALSE, sep = "\t", row.names = FALSE)

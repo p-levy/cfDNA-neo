@@ -71,7 +71,7 @@ variants <- variants %>% filter(!str_detect(ALT, "[ATCG],[ATCG]"))
 cl <- parallel::makeCluster(as.numeric(threads)) # Create a cluster using chosen number of cores
 registerDoParallel(cl)
 
-variants_counts <- foreach(i = 1:nrow(variants), .combine = rbind, .packages = c("deepSNV", "dplyr", "stringr")) %dopar% {
+variant_counts <- foreach(i = 1:nrow(variants), .combine = rbind, .packages = c("deepSNV", "dplyr", "stringr")) %dopar% {
   row <- variants[i, ]
   chrom <- row$CHROM
   pos <- as.numeric(row$POS)
@@ -100,4 +100,4 @@ variants_counts <- foreach(i = 1:nrow(variants), .combine = rbind, .packages = c
 stopCluster(cl) # Stop the cluster
 
 # Write the results
-write.table(variants_counts, file = paste0(outdir, "/", patient_name, "_merged_variants_counts.tsv"), quote = FALSE, sep = "\t", row.names = FALSE)
+write.table(variant_counts, file = paste0(outdir, "/", patient_name, "_merged_variant_counts.tsv"), quote = FALSE, sep = "\t", row.names = FALSE)

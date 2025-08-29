@@ -88,4 +88,4 @@ vaf_table_normal <- vcf_tib$gt %>%
     }
 
 # Write the results
-write.table(variants_merge, file = paste0(outdir, "/", patient_name, "_variants_counts.tsv"), quote = FALSE, sep = "\t", row.names = FALSE)
+write.table(variants_merge, file = paste0(outdir, "/", patient_name, "_variant_counts.tsv"), quote = FALSE, sep = "\t", row.names = FALSE)

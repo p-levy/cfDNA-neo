@@ -1,5 +1,5 @@
 # Cancer Cell Fraction / Variant Copy Number Calculations
-Scripts used to add **variant copy number** / **cancer cell fraction (ccf)** information to each variants present in the `variants_counts.tsv` files used as input. 
+Scripts used to add **variant copy number** / **cancer cell fraction (ccf)** information to each variant present in the `variant_counts.tsv` files used as input. 
 
 ```
 ccf --version {1|2|3} [args...]
