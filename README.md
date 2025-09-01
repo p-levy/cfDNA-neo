@@ -28,3 +28,5 @@ Inference of tumor clonal architecture and evolutionary relationships among subc
 Visualization of key outputs such as **tumor mutation burden**, **clonality**, and **copy number changes**.
 
 > See [Readme](plots/README.md)
+
+![Example plots](example_plots.png)
