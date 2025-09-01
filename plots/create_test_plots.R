@@ -4,6 +4,7 @@
 source("plots.R")
 
 # Create test CCF compare plot
+pdf(file = "test_ccf_density_plot.pdf", width = 6, height = 5)
 ccf_compare_plot(
 	ccf_tsv = "../test/ccf/test_full_FrTu_cfDNA_all_mutations_CCF.tsv", 
 	patient = "Test",
@@ -14,6 +15,7 @@ ccf_compare_plot(
 	show_immunogenic = TRUE,
 	label_immunogenic = TRUE
 	)
+dev.off()
 
 # Create test ASCAT plot
 pdf(file = "test_ascat_plot.pdf", width = 5, height = 2.4)
