@@ -1,0 +1,17 @@
+sample,segments,nsm_snv,nsm_indel,tumor_type
+pt1_FrTu,../test/cna/heatmap/pt1_FrTu.segments_raw.txt,90,4,Breast
+pt1_cfDNA,../test/cna/heatmap/pt1_cfDNA.segments_raw.txt,91,5,Breast
+pt2_FrTu,../test/cna/heatmap/pt2_FrTu.segments_raw.txt,100,12,Breast
+pt2_cfDNA,../test/cna/heatmap/pt2_cfDNA.segments_raw.txt,9,0,Breast
+pt3_FrTu,../test/cna/heatmap/pt3_FrTu.segments_raw.txt,162,7,H&N
+pt3_cfDNA,../test/cna/heatmap/pt3_cfDNA.segments_raw.txt,10,1,H&N
+pt4_FrTu,../test/cna/heatmap/pt4_FrTu.segments_raw.txt,29,0,H&N
+pt4_cfDNA,../test/cna/heatmap/pt4_cfDNA.segments_raw.txt,24,0,H&N
+pt5_FrTu,../test/cna/heatmap/pt5_FrTu.segments_raw.txt,1373,500,CRC
+pt5_cfDNA,../test/cna/heatmap/pt5_cfDNA.segments_raw.txt,1538,497,CRC
+pt6_FrTu,../test/cna/heatmap/pt6_FrTu.segments_raw.txt,252,0,CRC
+pt6_cfDNA,../test/cna/heatmap/pt6_cfDNA.segments_raw.txt,265,0,CRC
+pt7_FrTu,../test/cna/heatmap/pt7_FrTu.segments_raw.txt,148,0,Melanoma
+pt7_cfDNA,../test/cna/heatmap/pt7_cfDNA.segments_raw.txt,141,0,Melanoma
+pt8_FrTu,../test/cna/heatmap/pt8_FrTu.segments_raw.txt,1054,0,Melanoma
+pt8_cfDNA,../test/cna/heatmap/pt8_cfDNA.segments_raw.txt,1035,0,Melanoma
