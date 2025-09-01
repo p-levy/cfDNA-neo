@@ -184,6 +184,8 @@ plot_ascat_allelic_segments <- function(
     offset = 0.07,
     line_width = 1.5,
     cn_cap = 5) {
+    
+    # load libraries
     suppressPackageStartupMessages(library(tidyverse))
     suppressPackageStartupMessages(library(scales))
 
@@ -347,7 +349,6 @@ cna_heatmap <- function(
     # load libraries
     suppressPackageStartupMessages(library(tidyverse))
     suppressPackageStartupMessages(library(data.table))
-    suppressPackageStartupMessages(library(paletteer))
     suppressPackageStartupMessages(library(ComplexHeatmap))
     suppressPackageStartupMessages(library(circlize))
     suppressPackageStartupMessages(library(GenomicRanges))
