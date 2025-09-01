@@ -16,7 +16,7 @@ ccf_compare_plot(
 	)
 
 # Create test ASCAT plot
-pdf(file = "test_ascat_plot.pdf", width = 7, height = 2.5)
+pdf(file = "test_ascat_plot.pdf", width = 5, height = 2.4)
 plot_ascat_allelic_segments(
 	segment_file = "../test/cna/test_FrTu.segments_raw.txt",
 	nmaj_color = "#7D26CD",
