@@ -1,9 +1,12 @@
 # R plotting functions
 
+## ASCAT segment plot
+Customizable plotting of ASCAT `segments.txt` or `segments_raw.txt` output. 
+
 ## CCF comparison plot
 Compare CCF data from two different tumor samples (e.g. biopsy vs cfDNA)
 
-```{r}
+```r
 ccf_compare_plot <- function(
     ccf_tsv = "path/to/ccf_data.tsv", # output of ccf --version 2
     patient = "PatientID",
