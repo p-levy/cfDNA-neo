@@ -15,6 +15,7 @@ Launch interactive Docker session with R and required packages installed (see `D
 docker run -it --rm \
    -v path/to/cfDNA-neo:/cfDNA-neo \
    -v path/to/input_data:/data \ # if different from test data in repo
+   -v path/to/output_dir:/output \
    -w /cfDNA-neo/plots \
    plev/rplots:latest
 ``` 
@@ -42,7 +43,7 @@ plot_ascat_allelic_segments(
 ```
 ### Example plot
 ```r
-pdf(file = "test_ascat_plot.pdf", width = 5, height = 2.4)
+pdf(file = "test_ascat_plot.pdf", width = 5, height = 2.4) # save in /output dir when using Docker
 plot_ascat_allelic_segments(
 	segment_file = "../test/cna/test_FrTu.segments_raw.txt",
     cn_cap = 5)
@@ -71,7 +72,7 @@ ccf_compare_plot(
 **NeoAg / immunogenic variants** can be highlighted and labeled or not using the options `show_immunogenic` and `label_immunogenic`, respectively.
 
 ```r
-pdf(file = "test_ccf_density_plot.pdf", width = 6, height = 5)
+pdf(file = "test_ccf_density_plot.pdf", width = 6, height = 5) # save in /output dir when using Docker
 ccf_compare_plot(
 	ccf_tsv = "../test/ccf/test_full_FrTu_cfDNA_all_mutations_CCF.tsv", 
 	patient = "Test",
@@ -104,7 +105,7 @@ cna_heatmap(
 ```r
 # Create test CNA heatmap without TMB annotations
 set.seed(2025)
-pdf("cna_heatmap_no_annot.pdf", width = 8, height = 5.3)
+pdf("cna_heatmap_no_annot.pdf", width = 8, height = 5.3) # save in /output dir when using Docker
 cna_heatmap(
 	cna_input_csv = "../test/cna/heatmap/input.csv",
 	tmb_annot = FALSE,
@@ -117,7 +118,7 @@ dev.off()
 ```r
 # Create test CNA heatmap with TMB annotations
 set.seed(2025)
-pdf("cna_heatmap.pdf", width = 8, height = 6)
+pdf("cna_heatmap.pdf", width = 8, height = 6) # save in /output dir when using Docker
 cna_heatmap(
 	cna_input_csv = "../test/cna/heatmap/input.csv",
 	)
