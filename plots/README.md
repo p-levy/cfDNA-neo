@@ -8,8 +8,7 @@ install.packages(c('tidyverse', 'BiocManager', 'data.table', 'ggridges', 'ggrepe
 BiocManager::install(c('ComplexHeatmap', 'circlize', 'GenomicRanges', 'EnrichedHeatmap'))
 ```
 
-🐳 **Docker** alternative:
-
+🐳 **Docker** alternative:<br>
 Launch interactive Docker session with R and required packages installed (see `Dockerfile` in this directory):
 ```bash
 docker run -it --rm \

@@ -26,10 +26,13 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install BiocManager and remaining CRAN packages (tidyverse already included in base image)
-RUN R -e "install.packages(c('BiocManager', 'data.table', 'ggridges', 'ggrepel', 'patchwork', 'scales'), repos='https://cran.rstudio.com/')"
+RUN R -e "install.packages(c('BiocManager', 'data.table', 'ggridges', 'ggrepel', 'scales'), repos='https://cran.rstudio.com/')"
 
 # Install Bioconductor packages
 RUN R -e "BiocManager::install(c('ComplexHeatmap', 'circlize', 'GenomicRanges', 'EnrichedHeatmap'))"
+
+# Install patchwork package (failed when grouped with others)
+RUN R -e "install.packages('patchwork')"
 
 # Default command
 CMD ["/bin/bash"]
