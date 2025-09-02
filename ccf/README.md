@@ -60,7 +60,7 @@ options:
                         Path to variant read counts TSV
   --outdir OUTDIR       Output directory
   --segs SEGS           ASCAT raw segments
-  --purity PURITY       Purity value for Tumor sample (ASCAT or 'vaf')
+  --purity PURITY       Purity value for Tumor sample (ASCAT value or 'vaf' for samples with no CNA)
   --min_tvaf MIN_TVAF   Minimum tumor VAF (default: 0.03)
   --min_alt MIN_ALT     Minimum ALT reads (default: 4)
   --min_cov MIN_COV     Minimum coverage (default: 9)
@@ -108,9 +108,9 @@ options:
   --segs_Tumor_2 SEGS_TUMOR_2
                         ASCAT raw segments for Tumor 2
   --purity_Tumor_1 PURITY_TUMOR_1
-                        Purity value for Tumor 1 (ASCAT or 'vaf')
+                        Purity value for Tumor 1 (ASCAT value or 'vaf' for samples with no CNA)
   --purity_Tumor_2 PURITY_TUMOR_2
-                        Purity value for Tumor 2 (ASCAT or 'vaf')
+                        Purity value for Tumor 2 (ASCAT value or 'vaf' for samples with no CNA)
   --sample_type_1 SAMPLE_TYPE_1
                         Sample type for Tumor 1 (e.g. FrTu or cfDNA, same as
                         indicated for variant-counts step)
@@ -157,7 +157,7 @@ options:
                         Path to variant read counts TSV
   --outdir OUTDIR       Output directory
   --segs SEGS           ASCAT raw segments
-  --purity PURITY       Purity value for Tumor sample (ASCAT or 'vaf')
+  --purity PURITY       Purity value for Tumor sample (ASCAT value or 'vaf' for samples with no CNA)
   --min_tvaf MIN_TVAF   Minimum tumor VAF (default: 0.03)
   --min_alt MIN_ALT     Minimum ALT reads (default: 4)
   --min_cov MIN_COV     Minimum coverage (default: 9)
