@@ -8,7 +8,7 @@ $$
 $$
 
 `VAF`: variant allele frequency (from `variant_counts.tsv` file) <br>
-`purity`: tumor purity (from ASCAT or estimated from median VAF of clonal variants) <br>
+`purity`: tumor purity (from ASCAT or estimated from median VAF, for samples with no detectable CNA) <br>
 `nMajorCN`: major copy number (from ASCAT segments) <br>
 `nMinorCN`: minor copy number (from ASCAT segments) <br>	
 
