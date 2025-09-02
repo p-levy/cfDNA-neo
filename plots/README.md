@@ -8,8 +8,9 @@ install.packages(c('tidyverse', 'BiocManager', 'data.table', 'ggridges', 'ggrepe
 BiocManager::install(c('ComplexHeatmap', 'circlize', 'GenomicRanges', 'EnrichedHeatmap'))
 ```
 
-🐳 **Docker** alternative:<br>
-Launch interactive Docker session with R and required packages installed (see `Dockerfile` in this directory):
+### 🐳 Docker alternative:<br>
+Run the following command to launch an **interactive Docker session** with R and all required packages already installed (for info, see `Dockerfile` in this directory). Use `-v` to mount your local directories in order to access input data and save output plots. Adjust paths as needed.
+
 ```bash
 docker run -it --rm \
    -v path/to/cfDNA-neo:/cfDNA-neo \
