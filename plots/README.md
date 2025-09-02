@@ -26,13 +26,6 @@ plot_ascat_allelic_segments(
 pdf(file = "test_ascat_plot.pdf", width = 5, height = 2.4)
 plot_ascat_allelic_segments(
 	segment_file = "../test/cna/test_FrTu.segments_raw.txt",
-	nmaj_color = "#7D26CD",
-    nmin_color = "#00868B",
-    sample_id = NULL,
-    exclude_chrXY = FALSE,
-    min_seg_size = 1e6,
-    offset = 0.07,
-    line_width = 1.5,
     cn_cap = 5)
 dev.off()
 ```
@@ -63,11 +56,6 @@ pdf(file = "test_ccf_density_plot.pdf", width = 6, height = 5)
 ccf_compare_plot(
 	ccf_tsv = "../test/ccf/test_full_FrTu_cfDNA_all_mutations_CCF.tsv", 
 	patient = "Test",
-	dna_presence_criteria = "vaf",
-	min_vaf = 0.01,
-	limit_ccf = TRUE,
-	show_immunogenic = TRUE,
-	label_immunogenic = TRUE
 	)
 dev.off()
 ```
@@ -101,7 +89,6 @@ pdf("cna_heatmap_no_annot.pdf", width = 8, height = 5.3)
 cna_heatmap(
 	cna_input_csv = "../test/cna/heatmap/input.csv",
 	tmb_annot = FALSE,
-	order_by = "input"
 	)
 dev.off()
 ```
@@ -114,8 +101,6 @@ set.seed(2025)
 pdf("cna_heatmap.pdf", width = 8, height = 6)
 cna_heatmap(
 	cna_input_csv = "../test/cna/heatmap/input.csv",
-	tmb_annot = TRUE,
-	order_by = "input"
 	)
 dev.off()
 ```
