@@ -17,7 +17,7 @@ docker run -it --rm \
    -v path/to/input_data:/data \ # if different from test data in repo
    -v path/to/output_dir:/output \
    -w /cfDNA-neo/plots \
-   plev/rplots:latest
+   plev/rplots:latest R
 ``` 
 
 ## Load R functions
