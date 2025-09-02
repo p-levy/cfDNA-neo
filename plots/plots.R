@@ -66,8 +66,8 @@ ccf_compare_plot <- function(
                 aes(x = ccf_FrTu, y = ccf_cfDNA),
                 shape = 8, color = "#333333", size = 2, inherit.aes = FALSE
             )
-     }
-     
+    }
+
     if (show_immunogenic && label_immunogenic && "immunogenic" %in% colnames(ccf)) {
         p <- p +
             geom_text_repel(
@@ -163,11 +163,7 @@ ccf_compare_plot <- function(
         plot_layout(ncol = 3, nrow = 3, widths = c(1, 6.5, 1), heights = c(1, 6.5, 1)) +
         plot_annotation(title = patient)
 
-    ggsave(
-        plot = patch_plot,
-        filename = paste0("CCF_density_", patient, ".pdf"),
-        width = 6, height = 5
-    )
+    print(patch_plot)
 }
 
 
@@ -184,7 +180,6 @@ plot_ascat_allelic_segments <- function(
     offset = 0.07,
     line_width = 1.5,
     cn_cap = 5) {
-    
     # load libraries
     suppressPackageStartupMessages(library(tidyverse))
     suppressPackageStartupMessages(library(scales))
@@ -344,6 +339,7 @@ format_cna <- function(segments_raw, exclude_sex_chromosomes = TRUE, min_segment
 # Function to plot a heatmap of copy number alterations across samples and chromosomes
 cna_heatmap <- function(
     cna_input_csv,
+    tmb_annot = TRUE, # whether to include TMB annotation
     order_by = "input" # "input", "tmb" or "scna"
     ) {
     # load libraries
@@ -355,6 +351,9 @@ cna_heatmap <- function(
 
     # load input csv
     cna_input <- fread(cna_input_csv)
+
+    # Replace NA in tumor_type with "Unknown"
+    cna_input$tumor_type[is.na(cna_input$tumor_type)] <- "Unknown"
 
     #  extract sample names
     samples <- cna_input$sample
@@ -476,45 +475,60 @@ cna_heatmap <- function(
     chr_level <- paste0(c(1:22, "X"))
     chr <- factor(chr, levels = chr_level)
 
-    # Process TMB info
-    snv_indel_mat <- cna_input %>%
-        dplyr::select(nsm_snv, nsm_indel) %>%
-        as.matrix()
-    # Apply a cap of 200 to matrix (to sum SNV+INDEL but respect proportions)
-    # Capping function
-    cap_and_transform <- function(row, max_sum = 200) {
-        if (all(is.na(row))) {
-            return(row) # Return the row unchanged if it only contains NA
-        }
+    # Process TMB info if tmb_annot is TRUE
+    if (tmb_annot) {
+		# convert missing NSM values to 0
+		cna_input$nsm_snv[is.na(cna_input$nsm_snv)] <- 0
+		cna_input$nsm_indel[is.na(cna_input$nsm_indel)] <- 0
 
-        total <- sum(row, na.rm = TRUE) # Ignore NAs in the sum
-        if (total > max_sum) {
-            factor <- max_sum / total
-            row[!is.na(row)] <- row[!is.na(row)] * factor # Scale only non-NA values
-        }
+		# Create matrix of SNV and INDEL counts
+        snv_indel_mat <- cna_input %>%
+            dplyr::select(nsm_snv, nsm_indel) %>%
+            as.matrix()
+        # Apply a cap of 200 to matrix (to sum SNV+INDEL but respect proportions)
+        # Capping function
+        cap_and_transform <- function(row, max_sum = 200) {
+            if (all(is.na(row))) {
+                return(row) # Return the row unchanged if it only contains NA
+            }
 
-        return(row)
+            total <- sum(row, na.rm = TRUE) # Ignore NAs in the sum
+            if (total > max_sum) {
+                factor <- max_sum / total
+                row[!is.na(row)] <- row[!is.na(row)] * factor # Scale only non-NA values
+            }
+
+            return(row)
+        }
+        # Apply capping function to each row
+        capped_snv_indel_mat <- t(apply(snv_indel_mat, 1, cap_and_transform))
+
+        # Create a vector for NSM numbers interleaving with empty strings, to annotate every other column (because each sample as two allele columns)
+        cna_input$nsm <- cna_input$nsm_snv + cna_input$nsm_indel
+        NSM_annot <- rep("", length(cna_input$nsm) * 2) # Preallocate a vector with empty strings
+        NSM_annot[seq(2, length(NSM_annot), 2)] <- cna_input$nsm # Fill every odd index with the original values
+
+        # Heatmap annot with TMB info
+        column_ha <- HeatmapAnnotation(
+            "TMB_txt" = anno_text(NSM_annot, location = 0.1, just = "left", gp = gpar(fontsize = 10, col = "grey30")),
+            "TMB" = anno_barplot(capped_snv_indel_mat[rep(1:nrow(snv_indel_mat), each = 2), ], bar_width = 1, gp = gpar(fill = c("#00C5CD", "blue"), col = c("#00C5CD", "blue"))),
+            "SCNA (% of genome)" = rep(percent$scna_percent, each = 2),
+            "Tumor Group" = rep(cna_input$tumor_type, each = 2),
+            annotation_name_side = "left", annotation_name_gp = gpar(col = "grey20", fontsize = 10),
+            simple_anno_size = unit(0.5, "cm")
+        )
+
+        # SNV and INDEL legend
+        TMB_legend <- Legend(labels = c("SNV", "INDEL"), title = "TMB", legend_gp = gpar(fill = c("#00C5CD", "blue")))
+    } else {
+        # Heatmap annot without TMB info
+        column_ha <- HeatmapAnnotation(
+            "SCNA (% of genome)" = rep(percent$scna_percent, each = 2),
+            "Tumor Group" = rep(cna_input$tumor_type, each = 2),
+            annotation_name_side = "left", annotation_name_gp = gpar(col = "grey20", fontsize = 10),
+            simple_anno_size = unit(0.5, "cm")
+        )
     }
-    # Apply capping function to each row
-    capped_snv_indel_mat <- t(apply(snv_indel_mat, 1, cap_and_transform))
-
-    # Create a vector for NSM numbers interleaving with empty strings, to annotate every other column (because each sample as two allele columns)
-    cna_input$nsm <- cna_input$nsm_snv + cna_input$nsm_indel
-    NSM_annot <- rep("", length(cna_input$nsm) * 2) # Preallocate a vector with empty strings
-    NSM_annot[seq(2, length(NSM_annot), 2)] <- cna_input$nsm # Fill every odd index with the original values
-
-    # Heatmap annot
-    column_ha <- HeatmapAnnotation(
-        "TMB_txt" = anno_text(NSM_annot, location = 0.1, just = "left", gp = gpar(fontsize = 10, col = "grey30")),
-        "TMB" = anno_barplot(capped_snv_indel_mat[rep(1:nrow(snv_indel_mat), each = 2), ], bar_width = 1, gp = gpar(fill = c("#00C5CD", "blue"), col = c("#00C5CD", "blue"))),
-        "SCNA (% of genome)" = rep(percent$scna_percent, each = 2),
-        "Tumor Group" = rep(cna_input$tumor_type, each = 2),
-        annotation_name_side = "left", annotation_name_gp = gpar(col = "grey20", fontsize = 10),
-        simple_anno_size = unit(0.5, "cm")
-    )
-
-    # SNV and INDEL legend
-    TMB_legend <- Legend(labels = c("SNV", "INDEL"), title = "TMB", legend_gp = gpar(fill = c("#00C5CD", "blue")))
 
     # cap values at 3 and round to nearest integer
     mat <- pmin(mat, 3)
@@ -549,6 +563,7 @@ cna_heatmap <- function(
         heatmap_legend_param = list(at = c("0", "1", "2", "3"), labels = c("0", "1", "2", "3+"))
     )
 
-    draw(hm, annotation_legend_list = list(TMB_legend), merge_legend = FALSE)
-    
+	#  Draw heatmap (with or without TMB legend)
+	if (tmb_annot) {draw(hm, annotation_legend_list = list(TMB_legend), merge_legend = FALSE)}
+	else {draw(hm, merge_legend = FALSE)}
 }
