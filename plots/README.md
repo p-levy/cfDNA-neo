@@ -1,5 +1,24 @@
 # How to use R plotting functions
 
+## Install required R packages
+```r
+# Remove already installed package from list
+install.packages(c('tidyverse', 'BiocManager', 'data.table', 'ggridges', 'ggrepel', 'patchwork', 'scales'), repos='https://cran.rstudio.com/')
+
+BiocManager::install(c('ComplexHeatmap', 'circlize', 'GenomicRanges', 'EnrichedHeatmap'))
+```
+
+🐳 **Docker** alternative:
+
+Launch interactive Docker session with R and required packages installed (see `Dockerfile` in this directory):
+```bash
+docker run -it --rm \
+   -v path/to/cfDNA-neo:/cfDNA-neo \
+   -v path/to/input_data:/data \ # if different from test data in repo
+   -w /cfDNA-neo/plots \
+   plev/rplots:latest
+``` 
+
 ## Load R functions
 ```r
 source("plots.R")
