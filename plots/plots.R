@@ -14,7 +14,6 @@ ccf_compare_plot <- function(
     # load libraries
     suppressPackageStartupMessages(library(tidyverse))
     suppressPackageStartupMessages(library(data.table))
-    suppressPackageStartupMessages(library(paletteer))
     suppressPackageStartupMessages(library(ggridges))
     suppressPackageStartupMessages(library(ggrepel))
     suppressPackageStartupMessages(library(patchwork))
