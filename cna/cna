@@ -11,14 +11,14 @@ then { printf "
  \$6=OUTDIR
  \$7=DNA (cfDNA or FrTu)
  \$8=GENOME (hg19 or hg38)
- \$9=BED_PATH
+ \$9=BED_PATH (optional, use 'NULL' or leave empty to analyze whole genome)
  \$10=SKIP_NORMAL_PROCESS (TRUE or FALSE)
  "; exit 1; }
 fi
 
 set -uex
 
-# VARIABLES
+# VARIABLES
 PATIENT=${1}
 THREADS=${2}
 SEX=${3}
@@ -27,21 +27,21 @@ NBAM_PATH=${5}
 OUTDIR=${6}
 DNA=${7}
 GENOME=${8}
-BED_PATH=${9}
-SKIP_NORMAL_PROCESS=${10}
+BED_PATH=${9:-"NULL"}  # Default to "NULL" if not provided
+SKIP_NORMAL_PROCESS=${10:-"FALSE"}  # Default to "FALSE" if not provided
 
 # ASCAT #########################################################################
 
 mkdir -p ${OUTDIR}
 
 Rscript ascat_${DNA}.R \
-	${TBAM_PATH} \
-	${NBAM_PATH} \
-	${PATIENT} \
-	${BED_PATH} \
-	ascat_refs \
-	${THREADS} \
-	${SEX} \
-	${GENOME} \
-	${OUTDIR} \
-	${SKIP_NORMAL_PROCESS}
+${TBAM_PATH} \
+${NBAM_PATH} \
+${PATIENT} \
+${BED_PATH} \
+ascat_refs \
+${THREADS} \
+${SEX} \
+${GENOME} \
+${OUTDIR} \
+${SKIP_NORMAL_PROCESS}
