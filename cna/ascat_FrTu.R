@@ -36,48 +36,12 @@ genome=args[8] # hg19 or hg38
 genome_number = gsub("hg", "", genome)
 
 # Handle optional BED file
-if (bedfile_path_raw == "NULL" || bedfile_path_raw == "" || is.na(bedfile_path_raw)) {
+if (is.null(bedfile_path_raw) || is.na(bedfile_path_raw) || bedfile_path_raw == "NULL" || bedfile_path_raw == "" || nchar(bedfile_path_raw) == 0) {
   bedfile_path <- NULL
 } else {
   bedfile_path <- gsub("hg\\d{2}", genome, bedfile_path_raw)
 }
 
-outdir <- args[9]
-skip_normal_process <- as.logical(args[10])  # converts "TRUE"/"FALSE" to logicalArgs(trailingOnly = TRUE)
-
-# Usage
-if (length(args) == 0 || args[1] == "-h" || args[1] == "--help") {
-  cat("
-How to use:
-arg1: path to FrTu bam
-args2: path to normal bam
-args3: patient name
-args4: bed file (optional, use 'NULL' or leave empty to analyze whole genome)
-args5: path to ascat ref dir
-args6: n cores to use
-args7: sex ('XX' or 'XY')
-args8: genome (hg19 or hg38)
-args9: outdir
-args10: skip normal (TRUE/FALSE)
-
-      ")
-  quit()
-}
-
-# Libraries
-suppressPackageStartupMessages(library(ASCAT))
-
-# Variables
-tumourseqfile_path <- args[1]
-normalseqfile_path <- args[2]
-patient <- args[3]
-bedfile_path <- args[4]
-ascat_ref_path <- args[5]
-threads <- args[6]
-sex = args[7] # 'XX' or 'XY'
-genome=args[8] # hg19 or hg38
-genome_number = gsub("hg", "", genome)
-bedfile_path <- gsub("hg\\d{2}", genome, bedfile_path)
 outdir <- args[9]
 skip_normal_process <- as.logical(args[10])  # converts "TRUE"/"FALSE" to logical
 

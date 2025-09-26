@@ -47,21 +47,6 @@ skip_normal_process <- as.logical(args[10])  # converts "TRUE"/"FALSE" to logica
 
 setwd(outdir)
 
-# Variables
-tumourseqfile_path <- args[1]
-normalseqfile_path <- args[2]
-patient <- args[3]
-bedfile_path <- args[4]
-ascat_ref_path <- args[5]
-threads <- args[6]
-sex <- args[7] # 'XX' or 'XY'
-genome <- args[8] #  hg19 or hg38
-genome_number <- gsub("hg", "", genome)
-bedfile_path <- gsub("hg\\d{2}", genome, bedfile_path)
-outdir <- args[9]
-skip_normal_process <- as.logical(args[10])  # converts "TRUE"/"FALSE" to logical
-
-setwd(outdir)
 
 # Tom Watkins' (tom.watkins@crick.ac.uk) function to run ASCAT in BAF-only mode for cfDNA samples (avoids over-segmentation due to more noisy sequencing)
 # Requires an ascat.bc object that results from running the ascat.aspcf function:
