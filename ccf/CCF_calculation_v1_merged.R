@@ -58,7 +58,26 @@ args <- parser$parse_args()
 patient <- args$patient
 variants_counts_path <- args$variants_counts_path
 outdir <- args$outdir
-segs  <- fread(args$segs)
+
+# Check if segments files are PURPLE format and convert if needed
+if ("minorAlleleCopyNumber" %in% colnames(segs_cfDNA)) {
+  # Source the conversion function
+  source("convert_purple_to_ascat.R")
+  
+  # Convert PURPLE data to ASCAT format (returns data frame directly)
+  segs_cfDNA <- convert_purple_to_ascat(segs_cfDNA, sample_name = paste0(patient, "_cfDNA"))
+}
+
+if ("minorAlleleCopyNumber" %in% colnames(segs_FrTu)) {
+  # Source the conversion function (only if not already sourced)
+  if (!exists("convert_purple_to_ascat")) {
+    source("convert_purple_to_ascat.R")
+  }
+  
+  # Convert PURPLE data to ASCAT format (returns data frame directly)
+  segs_FrTu <- convert_purple_to_ascat(segs_FrTu, sample_name = paste0(patient, "_FrTu"))
+}
+
 purity <- args$purity
 
 if (!is.null(args$bed_exome)) {bed_exome <- fread(args$bed_exome)}

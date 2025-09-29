@@ -57,6 +57,16 @@ patient <- args$patient
 variants_counts_path <- args$variants_counts_path
 outdir <- args$outdir
 segs  <- fread(args$segs)
+
+# Check if segments file is PURPLE format and convert if needed
+if ("minorAlleleCopyNumber" %in% colnames(segs)) {
+  # Source the conversion function
+  source("convert_purple_to_ascat.R")
+  
+  # Convert PURPLE data to ASCAT format (returns data frame directly)
+  segs <- convert_purple_to_ascat(segs, sample_name = patient)
+}
+
 purity <- args$purity
 
 if (!is.null(args$bed_exome)) {bed_exome <- fread(args$bed_exome)}

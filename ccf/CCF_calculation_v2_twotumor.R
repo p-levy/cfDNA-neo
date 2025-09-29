@@ -67,8 +67,28 @@ args <- parser$parse_args()
 patient <- args$patient
 variants_counts_path <- args$variants_counts_path
 outdir <- args$outdir
-segs_Tumor_2 <- fread(args$segs_Tumor_2)
-segs_Tumor_1  <- fread(args$segs_Tumor_1)
+
+# Load and check segments files - convert PURPLE to ASCAT if needed
+segs_Tumor_1_raw <- fread(args$segs_Tumor_1)
+if ("minorAlleleCopyNumber" %in% colnames(segs_Tumor_1_raw)) {
+    # This is a PURPLE segment file, convert to ASCAT format
+    source("convert_purple_to_ascat.R")
+    segs_Tumor_1 <- convert_purple_to_ascat(segs_Tumor_1_raw, sample_name = paste0(patient, "_Tumor_1"))
+} else {
+    segs_Tumor_1 <- segs_Tumor_1_raw
+}
+
+segs_Tumor_2_raw <- fread(args$segs_Tumor_2)
+if ("minorAlleleCopyNumber" %in% colnames(segs_Tumor_2_raw)) {
+    # This is a PURPLE segment file, convert to ASCAT format
+    if (!exists("convert_purple_to_ascat")) {
+        source("convert_purple_to_ascat.R")
+    }
+    segs_Tumor_2 <- convert_purple_to_ascat(segs_Tumor_2_raw, sample_name = paste0(patient, "_Tumor_2"))
+} else {
+    segs_Tumor_2 <- segs_Tumor_2_raw
+}
+
 purity_Tumor_1 <- args$purity_Tumor_1
 purity_Tumor_2 <- args$purity_Tumor_2
 sample_type_1 <- args$sample_type_1
