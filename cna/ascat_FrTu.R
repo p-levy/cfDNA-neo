@@ -37,7 +37,7 @@ genome_number = gsub("hg", "", genome)
 
 # Handle optional BED file
 if (is.null(bedfile_path_raw) || is.na(bedfile_path_raw) || bedfile_path_raw == "NULL" || bedfile_path_raw == "" || nchar(bedfile_path_raw) == 0) {
-  bedfile_path <- NULL
+  bedfile_path <- NA
 } else {
   bedfile_path <- gsub("hg\\d{2}", genome, bedfile_path_raw)
 }
