@@ -169,7 +169,7 @@ ccf_compare_plot <- function(
 # ASCAT segment plots:
 # customizable function to plot ASCAT allele-specific segments
 
-plot_ascat_allelic_segments <- function(
+plot_allelic_segments <- function(
     segment_file,
     nmaj_color = "#7D26CD",
     nmin_color = "#00868B",
