@@ -25,11 +25,11 @@ docker run -it --rm \
 source("plots.R")
 ```
 
-## ASCAT segment plot
-Customizable plotting of ASCAT `segments.txt` or `segments_raw.txt` output.
+## CNA segment plot
+Customizable plotting of ASCAT `segments.txt`, `segments_raw.txt` or PURPLE `purple.segment.tsv` output.
 
 ```r
-plot_ascat_allelic_segments(
+plot_allelic_segments(
 	segment_file = "path/to/segments.txt", # can be segments.txt or segments_raw.txt
 	nmaj_color = "#7D26CD", # color of major copy number segments
     nmin_color = "#00868B", # color of minor copy number segments
@@ -44,7 +44,7 @@ plot_ascat_allelic_segments(
 ### Example plot
 ```r
 pdf(file = "test_ascat_plot.pdf", width = 5, height = 2.4) # save in /output dir when using Docker
-plot_ascat_allelic_segments(
+plot_allelic_segments(
 	segment_file = "../test/cna/test_FrTu.segments_raw.txt",
     cn_cap = 5)
 dev.off()

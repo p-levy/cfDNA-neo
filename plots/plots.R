@@ -182,19 +182,77 @@ plot_ascat_allelic_segments <- function(
     # load libraries
     suppressPackageStartupMessages(library(tidyverse))
     suppressPackageStartupMessages(library(scales))
+    suppressPackageStartupMessages(library(data.table))
 
     # Define chromosome order
     chr_order <- c(as.character(1:22), "X", "Y")
 
-    # Load and clean data
-    segs <- read.delim(segment_file, stringsAsFactors = FALSE) %>%
-        mutate(chr = toupper(as.character(chr)))
+    # Load data (robust to large TSVs)
+    segs <- suppressWarnings(as_tibble(fread(segment_file)))
+
+    # Detect format (ASCAT vs PURPLE) and normalize columns:
+    # Expected unified columns after normalization: chr, startpos, endpos, nMajor, nMinor, sample
+    nm <- names(segs)
+    if ((("chromosome" %in% nm) || ("Chromosome" %in% nm)) &&
+        ("majorAlleleCopyNumber" %in% nm) && ("minorAlleleCopyNumber" %in% nm)) {
+        # PURPLE format
+        chrom_col <- if ("chromosome" %in% nm) "chromosome" else "Chromosome"
+        # prefer canonical names, with fallbacks sometimes seen in outputs
+        start_col <- if ("start" %in% nm) {
+            "start"
+        } else if ("Start" %in% nm) {
+            "Start"
+        } else if ("minStart" %in% nm) {
+            "minStart"
+        } else {
+            stop("Could not find a start column in PURPLE file (expected one of: start, Start, minStart)")
+        }
+        end_col <- if ("end" %in% nm) {
+            "end"
+        } else if ("End" %in% nm) {
+            "End"
+        } else if ("maxStart" %in% nm) {
+            # rare case in SV-annotated rows; use maxStart as end
+            "maxStart"
+        } else {
+            stop("Could not find an end column in PURPLE file (expected one of: end, End, maxStart)")
+        }
+
+        segs <- segs %>%
+            mutate(
+                chr = toupper(gsub("^CHR", "", toupper(as.character(.data[[chrom_col]])))),
+                startpos = as.numeric(.data[[start_col]]),
+                endpos = as.numeric(.data[[end_col]]),
+                nMajor = as.numeric(round(majorAlleleCopyNumber)),
+                nMinor = as.numeric(round(minorAlleleCopyNumber))
+            )
+    } else {
+        # ASCAT-like: try to map common variants
+        if (!("chr" %in% nm) && ("chromosome" %in% nm)) segs <- segs %>% rename(chr = chromosome)
+        if (!("chr" %in% names(segs)) && ("Chromosome" %in% nm)) segs <- segs %>% rename(chr = Chromosome)
+        if (!("startpos" %in% nm) && ("start" %in% nm)) segs <- segs %>% rename(startpos = start)
+        if (!("endpos" %in% nm) && ("end" %in% nm)) segs <- segs %>% rename(endpos = end)
+        # Ensure types
+        segs <- segs %>% mutate(
+            chr = toupper(gsub("^CHR", "", toupper(as.character(chr)))),
+            startpos = as.numeric(startpos),
+            endpos = as.numeric(endpos),
+            nMajor = as.numeric(nMajor),
+            nMinor = as.numeric(nMinor)
+        )
+    }
+
+    # Ensure a sample column exists; fallback to provided sample_id or file name
+    if (!("sample" %in% names(segs))) {
+        default_sample <- if (!is.null(sample_id)) sample_id else tools::file_path_sans_ext(basename(segment_file))
+        segs$sample <- default_sample
+    }
 
     if (exclude_chrXY) {
         segs <- segs %>% filter(!chr %in% c("X", "Y"))
     }
 
-    if (!is.null(sample_id)) {
+    if (!is.null(sample_id) && ("sample" %in% names(segs))) {
         segs <- segs %>% filter(sample == sample_id)
     }
 
@@ -206,13 +264,28 @@ plot_ascat_allelic_segments <- function(
         mutate(chr = factor(chr, levels = chr_order)) %>%
         arrange(chr, startpos)
 
-    # Create allele-specific long format with pair_id
-    segs_with_pairs <- segs %>%
-        mutate(pair_id = row_number()) %>%
-        pivot_longer(cols = c(nMajor, nMinor), names_to = "allele", values_to = "copy_number") %>%
-        mutate(chr = factor(chr, levels = chr_order))
+    # Collapse adjacent segments with identical copy numbers to eliminate visual gaps
+    segs <- segs %>%
+        group_by(chr, sample) %>%
+        arrange(startpos) %>%
+        mutate(
+            # Create groups for consecutive segments with same copy numbers
+            cn_group = cumsum(
+                nMajor != lag(nMajor, default = dplyr::first(nMajor) + 1) | 
+                nMinor != lag(nMinor, default = dplyr::first(nMinor) + 1)
+            )
+        ) %>%
+        group_by(chr, sample, cn_group, nMajor, nMinor) %>%
+        summarise(
+            startpos = min(startpos),
+            endpos = max(endpos),
+            seg_size = endpos - startpos,
+            .groups = "drop"
+        ) %>%
+        select(-cn_group) %>%
+        arrange(chr, startpos)
 
-    # Always offset alleles
+    # Always offset alleles (create allele-specific long format with pair_id)
     segs_with_pairs <- segs %>%
         mutate(pair_id = row_number()) %>%
         pivot_longer(cols = c(nMajor, nMinor), names_to = "allele", values_to = "copy_number") %>%
@@ -226,9 +299,8 @@ plot_ascat_allelic_segments <- function(
         ) %>%
         mutate(offset_cn = pmin(offset_cn, cn_cap))
 
-    # Cap copy number at cn_cap
-    segs_with_pairs <- segs_with_pairs %>%
-        mutate(offset_cn = pmin(offset_cn, cn_cap))
+    # Cap copy number at cn_cap (safety)
+    segs_with_pairs <- segs_with_pairs %>% mutate(offset_cn = pmin(offset_cn, cn_cap))
 
     # Chromosome coordinates
     chr_lengths <- segs %>%
@@ -246,7 +318,7 @@ plot_ascat_allelic_segments <- function(
         left_join(chr_lengths, by = "chr") %>%
         mutate(
             start_genome = startpos + chr_start,
-            end_genome = endpos + chr_start
+            end_genome = endpos + chr_start + 1  # Extend by 1 bp to eliminate visual gaps
         )
 
     if (any(is.na(segs_with_pairs$chr_start))) {
@@ -261,7 +333,7 @@ plot_ascat_allelic_segments <- function(
         mutate(boundary = chr_start + chr_len) %>%
         pull(boundary)
 
-    # Build custom y-axis with "5+" label
+    # Build custom y-axis with "cn_cap+" label
     y_breaks <- seq(0, cn_cap, by = 1)
     y_labels <- as.character(y_breaks)
     y_labels[length(y_labels)] <- paste0(cn_cap, "+")
@@ -277,7 +349,8 @@ plot_ascat_allelic_segments <- function(
         scale_x_continuous(name = "Chromosome", breaks = chr_midpoints$mid, labels = chr_midpoints$chr) +
         scale_y_continuous(
             name = paste0("Allele-specific Copy Number"),
-            breaks = y_breaks, labels = y_labels, expand = c(0.01, 0), limits = c(-0.2, 5)
+            breaks = y_breaks, labels = y_labels, expand = c(0.01, 0), limits = c(-0.2, cn_cap),
+            minor_breaks = NULL
         ) +
         scale_color_manual(values = c(nMajor = nmaj_color, nMinor = nmin_color), name = "Allele") +
         theme_minimal() +
@@ -285,6 +358,7 @@ plot_ascat_allelic_segments <- function(
             legend.position = "none",
             panel.grid.major.x = element_blank(),
             panel.grid.minor.x = element_blank(),
+            panel.grid.minor.y = element_blank(),
             axis.text.x = element_text(angle = 90, hjust = 1)
         )
 }
