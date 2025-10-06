@@ -271,8 +271,8 @@ plot_allelic_segments <- function(
         mutate(
             # Create groups for consecutive segments with same copy numbers
             cn_group = cumsum(
-                nMajor != lag(nMajor, default = dplyr::first(nMajor) + 1) | 
-                nMinor != lag(nMinor, default = dplyr::first(nMinor) + 1)
+                nMajor != lag(nMajor, default = dplyr::first(nMajor) + 1) |
+                    nMinor != lag(nMinor, default = dplyr::first(nMinor) + 1)
             )
         ) %>%
         group_by(chr, sample, cn_group, nMajor, nMinor) %>%
@@ -318,7 +318,7 @@ plot_allelic_segments <- function(
         left_join(chr_lengths, by = "chr") %>%
         mutate(
             start_genome = startpos + chr_start,
-            end_genome = endpos + chr_start + 1  # Extend by 1 bp to eliminate visual gaps
+            end_genome = endpos + chr_start + 1 # Extend by 1 bp to eliminate visual gaps
         )
 
     if (any(is.na(segs_with_pairs$chr_start))) {
@@ -348,7 +348,7 @@ plot_allelic_segments <- function(
         geom_vline(xintercept = chr_boundaries, color = "gray90", linetype = "dashed", linewidth = 0.3) +
         scale_x_continuous(name = "Chromosome", breaks = chr_midpoints$mid, labels = chr_midpoints$chr) +
         scale_y_continuous(
-            name = paste0("Allele-specific Copy Number"),
+            name = paste0("Allele-specific\nCopy Number"),
             breaks = y_breaks, labels = y_labels, expand = c(0.01, 0), limits = c(-0.2, cn_cap),
             minor_breaks = NULL
         ) +
@@ -550,11 +550,11 @@ cna_heatmap <- function(
 
     # Process TMB info if tmb_annot is TRUE
     if (tmb_annot) {
-		# convert missing NSM values to 0
-		cna_input$nsm_snv[is.na(cna_input$nsm_snv)] <- 0
-		cna_input$nsm_indel[is.na(cna_input$nsm_indel)] <- 0
+        # convert missing NSM values to 0
+        cna_input$nsm_snv[is.na(cna_input$nsm_snv)] <- 0
+        cna_input$nsm_indel[is.na(cna_input$nsm_indel)] <- 0
 
-		# Create matrix of SNV and INDEL counts
+        # Create matrix of SNV and INDEL counts
         snv_indel_mat <- cna_input %>%
             dplyr::select(nsm_snv, nsm_indel) %>%
             as.matrix()
@@ -636,7 +636,10 @@ cna_heatmap <- function(
         heatmap_legend_param = list(at = c("0", "1", "2", "3"), labels = c("0", "1", "2", "3+"))
     )
 
-	#  Draw heatmap (with or without TMB legend)
-	if (tmb_annot) {draw(hm, annotation_legend_list = list(TMB_legend), merge_legend = FALSE)}
-	else {draw(hm, merge_legend = FALSE)}
+    #  Draw heatmap (with or without TMB legend)
+    if (tmb_annot) {
+        draw(hm, annotation_legend_list = list(TMB_legend), merge_legend = FALSE)
+    } else {
+        draw(hm, merge_legend = FALSE)
+    }
 }
