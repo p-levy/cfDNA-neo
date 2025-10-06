@@ -144,7 +144,7 @@ variants_Tumor_1 <- variants %>%
     filter(cov_Tumor_1 >= min_cov & cov_Normal >= min_cov) %>%
     filter(vaf_Normal == 0 | vaf_Tumor_1 >= 5 * vaf_Normal) %>%
     filter(ifelse(mutation_type == "SNV", n_callers.Tumor_1 >= min_callers_snv, n_callers.Tumor_1 >= min_callers_indels)) %>%
-    filter(vaf_Tumor_2 < min_tvaf | get(paste0("ALT_counts_", sample_type_2)) < min_alt | (ifelse(str_detect(found_in, "SNV"), is.na(n_callers.Tumor_2) | n_callers.Tumor_2 < min_callers_snv, is.na(n_callers.Tumor_2) | n_callers.Tumor_2 < min_callers_indels)) | cov_Tumor_2 < min_cov | vaf_Tumor_2 < 5 * vaf_Normal) %>%
+    filter(vaf_Tumor_2 < min_tvaf | get(paste0("ALT_counts_", sample_type_2)) < min_alt | (ifelse(mutation_type == "SNV", is.na(n_callers.Tumor_2) | n_callers.Tumor_2 < min_callers_snv, is.na(n_callers.Tumor_2) | n_callers.Tumor_2 < min_callers_indels)) | cov_Tumor_2 < min_cov | vaf_Tumor_2 < 5 * vaf_Normal) %>%
     mutate(DNA_source = ifelse(cov_Tumor_1 >= min_cov & cov_Tumor_2 >= min_cov & cov_Normal >= min_cov, paste0(sample_type_1, "_only"), paste0(sample_type_1, "_only_min_cov_in_2")))
 
 variants_Tumor_2 <- variants %>%
@@ -152,8 +152,8 @@ variants_Tumor_2 <- variants %>%
     filter(get(paste0("ALT_counts_", sample_type_2)) >= min_alt) %>%
     filter(cov_Tumor_2 >= min_cov & cov_Normal >= min_cov) %>%
     filter(vaf_Normal == 0 | vaf_Tumor_2 >= 5 * vaf_Normal) %>%
-    filter(ifelse(str_detect(found_in, "SNV"), n_callers.Tumor_2 >= min_callers_snv, n_callers.Tumor_2 >= min_callers_indels)) %>%
-    filter(vaf_Tumor_1 < min_tvaf | get(paste0("ALT_counts_", sample_type_1)) < min_alt | (ifelse(str_detect(found_in, "SNV"), is.na(n_callers.Tumor_1) | n_callers.Tumor_1 < min_callers_snv, is.na(n_callers.Tumor_1) | n_callers.Tumor_1 < min_callers_indels)) | cov_Tumor_1 < min_cov | vaf_Tumor_1 < 5 * vaf_Normal) %>%
+    filter(ifelse(mutation_type == "SNV", n_callers.Tumor_2 >= min_callers_snv, n_callers.Tumor_2 >= min_callers_indels)) %>%
+    filter(vaf_Tumor_1 < min_tvaf | get(paste0("ALT_counts_", sample_type_1)) < min_alt | (ifelse(mutation_type == "SNV", is.na(n_callers.Tumor_1) | n_callers.Tumor_1 < min_callers_snv, is.na(n_callers.Tumor_1) | n_callers.Tumor_1 < min_callers_indels)) | cov_Tumor_1 < min_cov | vaf_Tumor_1 < 5 * vaf_Normal) %>%
     mutate(DNA_source = ifelse(cov_Tumor_1 >= min_cov & cov_Tumor_2 >= min_cov & cov_Normal >= min_cov, paste0(sample_type_2, "_only"), paste0(sample_type_2, "_only_min_cov_in_2")))
 
 variants_shared <- variants %>%
@@ -161,7 +161,7 @@ variants_shared <- variants %>%
     filter(get(paste0("ALT_counts_", sample_type_1)) >= min_alt & get(paste0("ALT_counts_", sample_type_2)) >= min_alt) %>%
     filter(cov_Tumor_1 >= min_cov & cov_Tumor_2 >= min_cov & cov_Normal >= min_cov) %>%
     filter(vaf_Normal == 0 | (vaf_Tumor_1 >= 5 * vaf_Normal & vaf_Tumor_2 >= 5 * vaf_Normal)) %>%
-    filter(ifelse(str_detect(found_in, "SNV"), (n_callers.Tumor_1 >= min_callers_snv & n_callers.Tumor_2 >= min_callers_snv) | (CHROM == "16" & POS == 706395), n_callers.Tumor_1 >= min_callers_indels & n_callers.Tumor_2 >= min_callers_indels)) %>%
+    filter(ifelse(mutation_type == "SNV", (n_callers.Tumor_1 >= min_callers_snv & n_callers.Tumor_2 >= min_callers_snv) | (CHROM == "16" & POS == 706395), n_callers.Tumor_1 >= min_callers_indels & n_callers.Tumor_2 >= min_callers_indels)) %>%
     mutate(DNA_source = "shared")
 
 variants_counts <- rbind(variants_Tumor_1, variants_Tumor_2, variants_shared)
@@ -183,11 +183,11 @@ if (!is.null(args$bed_exome)) {
         mutate(end = POS) %>%
         dplyr::rename(start = POS, chrom = CHROM)
     bed_mut_exome <- bt.intersect(bed_mut, bed_exome, u = TRUE) # u=TRUE to only report one entry per mutation, if at least it is in one of the bed intervals
-    bed_mut_exome <- bed_mut_exome %>% dplyr::rename(CHROM = V1, POS = V2)
-    bed_mut_exome$CHROM <- standardize_chr(bed_mut_exome$CHROM)
-    variants_counts <- bed_mut_exome %>% 
-        dplyr::select(CHROM, POS) %>% 
-        left_join(variants_counts, by = c("CHROM", "POS"))
+    
+    # Filter variants_counts to keep only mutations in exome
+    variants_counts_exome <- variants_counts %>%
+        semi_join(bed_mut_exome, by = c("CHROM" = "V1", "POS" = "V2"))
+    variants_counts <- variants_counts_exome
 
 	# Get the copy number from the segment files and annotate the mutation table
 	bed_seg_Tumor_1 <- segs_Tumor_1 %>% dplyr::select(2:6)

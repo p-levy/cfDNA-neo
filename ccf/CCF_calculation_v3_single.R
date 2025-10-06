@@ -78,8 +78,6 @@ if (!is.null(args$neo)) {neo <- fread(args$neo)}
 min_tvaf <- args$min_tvaf
 min_alt <- args$min_alt
 min_cov <- args$min_cov
-min_callers_snv <- args$min_callers_snv
-min_callers_indels <- args$min_callers_indels
 
 # Create output dir if not existing already
 system(paste0("mkdir -p ", outdir))
@@ -124,11 +122,11 @@ if (!is.null(args$bed_exome)) {
         mutate(end = POS) %>%
         dplyr::rename(start = POS, chrom = CHROM)
     bed_mut_exome <- bt.intersect(bed_mut, bed_exome, u = TRUE) # u=TRUE to only report one entry per mutation, if at least it is in one of the bed intervals
-    bed_mut_exome <- bed_mut_exome %>% dplyr::rename(CHROM = V1, POS = V2)
-    bed_mut_exome$CHROM <- standardize_chr(bed_mut_exome$CHROM)
-    variants_counts <- bed_mut_exome %>%
-        dplyr::select(CHROM, POS) %>%
-        left_join(variants_counts, by = c("CHROM", "POS"))
+    
+    # Filter variants_counts to keep only mutations in exome
+    variants_counts_exome <- variants_counts %>%
+        semi_join(bed_mut_exome, by = c("CHROM" = "V1", "POS" = "V2"))
+    variants_counts <- variants_counts_exome
 
 	# Get the copy number from the segment files and annotate the mutation table
 	bed_seg_Tumor <- segs %>% dplyr::select(2:6)
