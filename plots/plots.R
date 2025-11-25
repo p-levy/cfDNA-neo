@@ -187,13 +187,39 @@ plot_allelic_segments <- function(
     # Define chromosome order
     chr_order <- c(as.character(1:22), "X", "Y")
 
-    # Load data (robust to large TSVs)
-    segs <- suppressWarnings(as_tibble(fread(segment_file)))
+    # Load data: handle RDS (FACETS), data.frame/tibble, or TSV file
+    if (is.character(segment_file) && grepl("\\.rds$", segment_file, ignore.case = TRUE)) {
+        # Load RDS file (FACETS format)
+        facets_obj <- readRDS(segment_file)
+        # Extract $segs table
+        if (is.list(facets_obj) && "segs" %in% names(facets_obj)) {
+            segs <- as_tibble(facets_obj$segs)
+        } else {
+            stop("RDS file does not contain a 'segs' element. Expected FACETS output structure.")
+        }
+    } else if (is.data.frame(segment_file)) {
+        # Input is already a data frame or tibble
+        segs <- as_tibble(segment_file)
+    } else {
+        # Load data from TSV file (robust to large TSVs)
+        segs <- suppressWarnings(as_tibble(fread(segment_file)))
+    }
 
-    # Detect format (ASCAT vs PURPLE) and normalize columns:
+    # Detect format (ASCAT vs PURPLE vs FACETS) and normalize columns:
     # Expected unified columns after normalization: chr, startpos, endpos, nMajor, nMinor, sample
     nm <- names(segs)
-    if ((("chromosome" %in% nm) || ("Chromosome" %in% nm)) &&
+    
+    if (("chrom" %in% nm) && ("tcn.em" %in% nm) && ("lcn.em" %in% nm)) {
+        # FACETS format
+        segs <- segs %>%
+            mutate(
+                chr = toupper(gsub("^CHR", "", toupper(as.character(chrom)))),
+                startpos = as.numeric(start),
+                endpos = as.numeric(end),
+                nMinor = as.numeric(round(lcn.em)),
+                nMajor = as.numeric(round(tcn.em - lcn.em))
+            )
+    } else if ((("chromosome" %in% nm) || ("Chromosome" %in% nm)) &&
         ("majorAlleleCopyNumber" %in% nm) && ("minorAlleleCopyNumber" %in% nm)) {
         # PURPLE format
         chrom_col <- if ("chromosome" %in% nm) "chromosome" else "Chromosome"
