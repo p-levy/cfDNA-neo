@@ -171,8 +171,8 @@ ccf_compare_plot <- function(
 
 plot_allelic_segments <- function(
     segment_file,
-    nmaj_color = "#7D26CD",
-    nmin_color = "#00868B",
+    nmaj_color = "#AF2F2F",
+    nmin_color = "#4A559E",
     sample_id = NULL,
     exclude_chrXY = FALSE,
     min_seg_size = 0.5e6,
@@ -275,7 +275,7 @@ plot_allelic_segments <- function(
     }
 
     if (exclude_chrXY) {
-        segs <- segs %>% filter(!chr %in% c("X", "Y"))
+        segs <- segs %>% filter(!chr %in% c("X", "Y", "23"))
     }
 
     if (!is.null(sample_id) && ("sample" %in% names(segs))) {
@@ -297,8 +297,8 @@ plot_allelic_segments <- function(
         mutate(
             # Create groups for consecutive segments with same copy numbers
             cn_group = cumsum(
-                nMajor != lag(nMajor, default = dplyr::first(nMajor) + 1) |
-                    nMinor != lag(nMinor, default = dplyr::first(nMinor) + 1)
+                nMajor != dplyr::lag(nMajor, default = dplyr::first(nMajor) + 1) |
+                    nMinor != dplyr::lag(nMinor, default = dplyr::first(nMinor) + 1)
             )
         ) %>%
         group_by(chr, sample, cn_group, nMajor, nMinor) %>%
