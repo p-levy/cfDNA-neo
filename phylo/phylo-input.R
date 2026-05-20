@@ -103,6 +103,7 @@ muts_2 <- ccf %>%
         PLOIDY
     )
 
-phylo_input <- rbind(muts_1, muts_2)
+phylo_input <- rbind(muts_1, muts_2) %>%
+    filter(!is.na(COPY_NUMBER_A) & !is.na(COPY_NUMBER_B))
 
 write.table(phylo_input, file = paste0(outdir, "/", patient, "_", sample_type_1, "_", sample_type_2, ".conipher_input.tsv"), quote = FALSE, sep = "\t", row.names = FALSE)

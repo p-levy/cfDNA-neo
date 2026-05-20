@@ -169,10 +169,10 @@ ccf_compare_plot <- function(
 # ASCAT segment plots:
 # customizable function to plot ASCAT allele-specific segments
 
-plot_ascat_allelic_segments <- function(
+plot_allelic_segments <- function(
     segment_file,
-    nmaj_color = "#7D26CD",
-    nmin_color = "#00868B",
+    nmaj_color = "#AF2F2F",
+    nmin_color = "#4A559E",
     sample_id = NULL,
     exclude_chrXY = FALSE,
     min_seg_size = 0.5e6,
@@ -182,19 +182,103 @@ plot_ascat_allelic_segments <- function(
     # load libraries
     suppressPackageStartupMessages(library(tidyverse))
     suppressPackageStartupMessages(library(scales))
+    suppressPackageStartupMessages(library(data.table))
 
     # Define chromosome order
     chr_order <- c(as.character(1:22), "X", "Y")
 
-    # Load and clean data
-    segs <- read.delim(segment_file, stringsAsFactors = FALSE) %>%
-        mutate(chr = toupper(as.character(chr)))
-
-    if (exclude_chrXY) {
-        segs <- segs %>% filter(!chr %in% c("X", "Y"))
+    # Load data: handle RDS (FACETS), data.frame/tibble, or TSV file
+    if (is.character(segment_file) && grepl("\\.rds$", segment_file, ignore.case = TRUE)) {
+        # Load RDS file (FACETS format)
+        facets_obj <- readRDS(segment_file)
+        # Extract $segs table
+        if (is.list(facets_obj) && "segs" %in% names(facets_obj)) {
+            segs <- as_tibble(facets_obj$segs)
+        } else {
+            stop("RDS file does not contain a 'segs' element. Expected FACETS output structure.")
+        }
+    } else if (is.data.frame(segment_file)) {
+        # Input is already a data frame or tibble
+        segs <- as_tibble(segment_file)
+    } else {
+        # Load data from TSV file (robust to large TSVs)
+        segs <- suppressWarnings(as_tibble(fread(segment_file)))
     }
 
-    if (!is.null(sample_id)) {
+    # Detect format (ASCAT vs PURPLE vs FACETS) and normalize columns:
+    # Expected unified columns after normalization: chr, startpos, endpos, nMajor, nMinor, sample
+    nm <- names(segs)
+    
+    if (("chrom" %in% nm) && ("tcn.em" %in% nm) && ("lcn.em" %in% nm)) {
+        # FACETS format
+        segs <- segs %>%
+            mutate(
+                chr = toupper(gsub("^CHR", "", toupper(as.character(chrom)))),
+                startpos = as.numeric(start),
+                endpos = as.numeric(end),
+                nMinor = as.numeric(round(lcn.em)),
+                nMajor = as.numeric(round(tcn.em - lcn.em))
+            )
+    } else if ((("chromosome" %in% nm) || ("Chromosome" %in% nm)) &&
+        ("majorAlleleCopyNumber" %in% nm) && ("minorAlleleCopyNumber" %in% nm)) {
+        # PURPLE format
+        chrom_col <- if ("chromosome" %in% nm) "chromosome" else "Chromosome"
+        # prefer canonical names, with fallbacks sometimes seen in outputs
+        start_col <- if ("start" %in% nm) {
+            "start"
+        } else if ("Start" %in% nm) {
+            "Start"
+        } else if ("minStart" %in% nm) {
+            "minStart"
+        } else {
+            stop("Could not find a start column in PURPLE file (expected one of: start, Start, minStart)")
+        }
+        end_col <- if ("end" %in% nm) {
+            "end"
+        } else if ("End" %in% nm) {
+            "End"
+        } else if ("maxStart" %in% nm) {
+            # rare case in SV-annotated rows; use maxStart as end
+            "maxStart"
+        } else {
+            stop("Could not find an end column in PURPLE file (expected one of: end, End, maxStart)")
+        }
+
+        segs <- segs %>%
+            mutate(
+                chr = toupper(gsub("^CHR", "", toupper(as.character(.data[[chrom_col]])))),
+                startpos = as.numeric(.data[[start_col]]),
+                endpos = as.numeric(.data[[end_col]]),
+                nMajor = as.numeric(round(majorAlleleCopyNumber)),
+                nMinor = as.numeric(round(minorAlleleCopyNumber))
+            )
+    } else {
+        # ASCAT-like: try to map common variants
+        if (!("chr" %in% nm) && ("chromosome" %in% nm)) segs <- segs %>% rename(chr = chromosome)
+        if (!("chr" %in% names(segs)) && ("Chromosome" %in% nm)) segs <- segs %>% rename(chr = Chromosome)
+        if (!("startpos" %in% nm) && ("start" %in% nm)) segs <- segs %>% rename(startpos = start)
+        if (!("endpos" %in% nm) && ("end" %in% nm)) segs <- segs %>% rename(endpos = end)
+        # Ensure types
+        segs <- segs %>% mutate(
+            chr = toupper(gsub("^CHR", "", toupper(as.character(chr)))),
+            startpos = as.numeric(startpos),
+            endpos = as.numeric(endpos),
+            nMajor = as.numeric(nMajor),
+            nMinor = as.numeric(nMinor)
+        )
+    }
+
+    # Ensure a sample column exists; fallback to provided sample_id or file name
+    if (!("sample" %in% names(segs))) {
+        default_sample <- if (!is.null(sample_id)) sample_id else tools::file_path_sans_ext(basename(segment_file))
+        segs$sample <- default_sample
+    }
+
+    if (exclude_chrXY) {
+        segs <- segs %>% filter(!chr %in% c("X", "Y", "23"))
+    }
+
+    if (!is.null(sample_id) && ("sample" %in% names(segs))) {
         segs <- segs %>% filter(sample == sample_id)
     }
 
@@ -206,13 +290,28 @@ plot_ascat_allelic_segments <- function(
         mutate(chr = factor(chr, levels = chr_order)) %>%
         arrange(chr, startpos)
 
-    # Create allele-specific long format with pair_id
-    segs_with_pairs <- segs %>%
-        mutate(pair_id = row_number()) %>%
-        pivot_longer(cols = c(nMajor, nMinor), names_to = "allele", values_to = "copy_number") %>%
-        mutate(chr = factor(chr, levels = chr_order))
+    # Collapse adjacent segments with identical copy numbers to eliminate visual gaps
+    segs <- segs %>%
+        group_by(chr, sample) %>%
+        arrange(startpos) %>%
+        mutate(
+            # Create groups for consecutive segments with same copy numbers
+            cn_group = cumsum(
+                nMajor != dplyr::lag(nMajor, default = dplyr::first(nMajor) + 1) |
+                    nMinor != dplyr::lag(nMinor, default = dplyr::first(nMinor) + 1)
+            )
+        ) %>%
+        group_by(chr, sample, cn_group, nMajor, nMinor) %>%
+        summarise(
+            startpos = min(startpos),
+            endpos = max(endpos),
+            seg_size = endpos - startpos,
+            .groups = "drop"
+        ) %>%
+        select(-cn_group) %>%
+        arrange(chr, startpos)
 
-    # Always offset alleles
+    # Always offset alleles (create allele-specific long format with pair_id)
     segs_with_pairs <- segs %>%
         mutate(pair_id = row_number()) %>%
         pivot_longer(cols = c(nMajor, nMinor), names_to = "allele", values_to = "copy_number") %>%
@@ -226,9 +325,8 @@ plot_ascat_allelic_segments <- function(
         ) %>%
         mutate(offset_cn = pmin(offset_cn, cn_cap))
 
-    # Cap copy number at cn_cap
-    segs_with_pairs <- segs_with_pairs %>%
-        mutate(offset_cn = pmin(offset_cn, cn_cap))
+    # Cap copy number at cn_cap (safety)
+    segs_with_pairs <- segs_with_pairs %>% mutate(offset_cn = pmin(offset_cn, cn_cap))
 
     # Chromosome coordinates
     chr_lengths <- segs %>%
@@ -246,7 +344,7 @@ plot_ascat_allelic_segments <- function(
         left_join(chr_lengths, by = "chr") %>%
         mutate(
             start_genome = startpos + chr_start,
-            end_genome = endpos + chr_start
+            end_genome = endpos + chr_start + 1 # Extend by 1 bp to eliminate visual gaps
         )
 
     if (any(is.na(segs_with_pairs$chr_start))) {
@@ -261,7 +359,7 @@ plot_ascat_allelic_segments <- function(
         mutate(boundary = chr_start + chr_len) %>%
         pull(boundary)
 
-    # Build custom y-axis with "5+" label
+    # Build custom y-axis with "cn_cap+" label
     y_breaks <- seq(0, cn_cap, by = 1)
     y_labels <- as.character(y_breaks)
     y_labels[length(y_labels)] <- paste0(cn_cap, "+")
@@ -276,8 +374,9 @@ plot_ascat_allelic_segments <- function(
         geom_vline(xintercept = chr_boundaries, color = "gray90", linetype = "dashed", linewidth = 0.3) +
         scale_x_continuous(name = "Chromosome", breaks = chr_midpoints$mid, labels = chr_midpoints$chr) +
         scale_y_continuous(
-            name = paste0("Allele-specific Copy Number"),
-            breaks = y_breaks, labels = y_labels, expand = c(0.01, 0), limits = c(-0.2, 5)
+            name = paste0("Allele-specific\nCopy Number"),
+            breaks = y_breaks, labels = y_labels, expand = c(0.01, 0), limits = c(-0.2, cn_cap),
+            minor_breaks = NULL
         ) +
         scale_color_manual(values = c(nMajor = nmaj_color, nMinor = nmin_color), name = "Allele") +
         theme_minimal() +
@@ -285,6 +384,7 @@ plot_ascat_allelic_segments <- function(
             legend.position = "none",
             panel.grid.major.x = element_blank(),
             panel.grid.minor.x = element_blank(),
+            panel.grid.minor.y = element_blank(),
             axis.text.x = element_text(angle = 90, hjust = 1)
         )
 }
@@ -476,11 +576,11 @@ cna_heatmap <- function(
 
     # Process TMB info if tmb_annot is TRUE
     if (tmb_annot) {
-		# convert missing NSM values to 0
-		cna_input$nsm_snv[is.na(cna_input$nsm_snv)] <- 0
-		cna_input$nsm_indel[is.na(cna_input$nsm_indel)] <- 0
+        # convert missing NSM values to 0
+        cna_input$nsm_snv[is.na(cna_input$nsm_snv)] <- 0
+        cna_input$nsm_indel[is.na(cna_input$nsm_indel)] <- 0
 
-		# Create matrix of SNV and INDEL counts
+        # Create matrix of SNV and INDEL counts
         snv_indel_mat <- cna_input %>%
             dplyr::select(nsm_snv, nsm_indel) %>%
             as.matrix()
@@ -562,7 +662,10 @@ cna_heatmap <- function(
         heatmap_legend_param = list(at = c("0", "1", "2", "3"), labels = c("0", "1", "2", "3+"))
     )
 
-	#  Draw heatmap (with or without TMB legend)
-	if (tmb_annot) {draw(hm, annotation_legend_list = list(TMB_legend), merge_legend = FALSE)}
-	else {draw(hm, merge_legend = FALSE)}
+    #  Draw heatmap (with or without TMB legend)
+    if (tmb_annot) {
+        draw(hm, annotation_legend_list = list(TMB_legend), merge_legend = FALSE)
+    } else {
+        draw(hm, merge_legend = FALSE)
+    }
 }

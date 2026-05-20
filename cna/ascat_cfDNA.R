@@ -9,7 +9,7 @@ How to use:
 arg1: path to cfDNA bam
 args2: path to normal bam
 args3: patient name
-args4: bed file
+args4: bed file (optional, use 'NULL' or leave empty to analyze whole genome)
 args5: path to ascat ref dir
 args6: n cores to use
 args7: sex ('XX' or 'XY')
@@ -28,17 +28,25 @@ suppressPackageStartupMessages(library(ASCAT))
 tumourseqfile_path <- args[1]
 normalseqfile_path <- args[2]
 patient <- args[3]
-bedfile_path <- args[4]
+bedfile_path_raw <- args[4]
 ascat_ref_path <- args[5]
 threads <- args[6]
 sex <- args[7] # 'XX' or 'XY'
-genome <- args[8] #  hg19 or hg38
+genome <- args[8] #  hg19 or hg38
 genome_number <- gsub("hg", "", genome)
-bedfile_path <- gsub("hg\\d{2}", genome, bedfile_path)
+
+# Handle optional BED file
+if (is.null(bedfile_path_raw) || is.na(bedfile_path_raw) || bedfile_path_raw == "NULL" || bedfile_path_raw == "" || nchar(bedfile_path_raw) == 0) {
+  bedfile_path <- NA
+} else {
+  bedfile_path <- gsub("hg\\d{2}", genome, bedfile_path_raw)
+}
+
 outdir <- args[9]
 skip_normal_process <- as.logical(args[10])  # converts "TRUE"/"FALSE" to logical
 
 setwd(outdir)
+
 
 # Tom Watkins' (tom.watkins@crick.ac.uk) function to run ASCAT in BAF-only mode for cfDNA samples (avoids over-segmentation due to more noisy sequencing)
 # Requires an ascat.bc object that results from running the ascat.aspcf function:

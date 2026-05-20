@@ -11,14 +11,14 @@ then { printf "
  \$6=OUTDIR
  \$7=DNA (cfDNA or FrTu)
  \$8=GENOME (hg19 or hg38)
- \$9=BED_PATH
+ \$9=BED_PATH (optional, use 'NULL' or leave empty to analyze whole genome)
  \$10=SKIP_NORMAL_PROCESS (TRUE or FALSE)
  "; exit 1; }
 fi
 
 set -uex
 
-# VARIABLES
+# VARIABLES
 PATIENT=${1}
 THREADS=${2}
 SEX=${3}
@@ -27,37 +27,47 @@ NBAM_PATH=$(realpath "${5}")
 OUTDIR=${6}
 DNA=${7}
 GENOME=${8}
-BED_PATH=$(realpath "${9}")
-SKIP_NORMAL_PROCESS=${10}
+BED_PATH_RAW=${9:-"NULL"}  # Default to "NULL" if not provided
+SKIP_NORMAL_PROCESS=${10:-"FALSE"}  # Default to "FALSE" if not provided
 
 TBAM_DIR=$(dirname ${TBAM_PATH})
 NBAM_DIR=$(dirname ${NBAM_PATH})
-BED_DIR=$(dirname ${BED_PATH})
 TBAM=$(basename ${TBAM_PATH})
 NBAM=$(basename ${NBAM_PATH})
-BED=$(basename ${BED_PATH})
+
+# Handle optional BED file
+if [[ "${BED_PATH_RAW}" == "NULL" || "${BED_PATH_RAW}" == "" ]]; then
+    BED_MOUNT=""
+    BED_ARG="NULL"
+else
+    BED_PATH=$(realpath "${BED_PATH_RAW}")
+    BED_DIR=$(dirname ${BED_PATH})
+    BED=$(basename ${BED_PATH})
+    BED_MOUNT="-v ${BED_DIR}:/bed_dir"
+    BED_ARG="/bed_dir/${BED}"
+fi
 
 # ASCAT #########################################################################
 
 mkdir -p ${OUTDIR}
 
 docker run --rm \
-	-v ${TBAM_DIR}:/tbam_dir \
-	-v ${NBAM_DIR}:/nbam_dir \
-	-v ${BED_DIR}:/bed_dir \
-	-v ${OUTDIR}:/ascat \
-	-v ${PWD}:/scripts \
-	-v $(realpath "ascat_refs"):/ref \
-	-w /ascat \
+-v ${TBAM_DIR}:/tbam_dir \
+-v ${NBAM_DIR}:/nbam_dir \
+${BED_MOUNT} \
+-v ${OUTDIR}:/ascat \
+-v ${PWD}:/scripts \
+-v $(realpath "ascat_refs"):/ref \
+-w /ascat \
     plev/ascat:3.1.2 \
     Rscript /scripts/ascat_${DNA}.R \
-		/tbam_dir/${TBAM} \
-		/nbam_dir/${NBAM} \
-		${PATIENT} \
-		/bed_dir/${BED} \
-		/ref \
-		${THREADS} \
-		${SEX} \
-		${GENOME} \
-		/ascat \
-		${SKIP_NORMAL_PROCESS}
+/tbam_dir/${TBAM} \
+/nbam_dir/${NBAM} \
+${PATIENT} \
+${BED_ARG} \
+/ref \
+${THREADS} \
+${SEX} \
+${GENOME} \
+/ascat \
+${SKIP_NORMAL_PROCESS}

@@ -8,16 +8,16 @@ install.packages(c('tidyverse', 'BiocManager', 'data.table', 'ggridges', 'ggrepe
 BiocManager::install(c('ComplexHeatmap', 'circlize', 'GenomicRanges', 'EnrichedHeatmap'))
 ```
 
-🐳 **Docker** alternative:
+### 🐳 Docker alternative:<br>
+Run the following command to launch an **interactive Docker session** with R and all required packages already installed (for info, see `Dockerfile` in this directory). Use `-v` to mount your local directories in order to access input data and save output plots. Adjust paths as needed.
 
-Launch interactive Docker session with R and required packages installed (see `Dockerfile` in this directory):
 ```bash
 docker run -it --rm \
    -v path/to/cfDNA-neo:/cfDNA-neo \
    -v path/to/input_data:/data \ # if different from test data in repo
    -v path/to/output_dir:/output \
    -w /cfDNA-neo/plots \
-   plev/rplots:latest
+   plev/rplots:latest R
 ``` 
 
 ## Load R functions
@@ -25,11 +25,11 @@ docker run -it --rm \
 source("plots.R")
 ```
 
-## ASCAT segment plot
-Customizable plotting of ASCAT `segments.txt` or `segments_raw.txt` output.
+## CNA segment plot
+Customizable plotting of ASCAT `segments.txt`, `segments_raw.txt` or PURPLE `purple.segment.tsv` output.
 
 ```r
-plot_ascat_allelic_segments(
+plot_allelic_segments(
 	segment_file = "path/to/segments.txt", # can be segments.txt or segments_raw.txt
 	nmaj_color = "#7D26CD", # color of major copy number segments
     nmin_color = "#00868B", # color of minor copy number segments
@@ -44,7 +44,7 @@ plot_ascat_allelic_segments(
 ### Example plot
 ```r
 pdf(file = "test_ascat_plot.pdf", width = 5, height = 2.4) # save in /output dir when using Docker
-plot_ascat_allelic_segments(
+plot_allelic_segments(
 	segment_file = "../test/cna/test_FrTu.segments_raw.txt",
     cn_cap = 5)
 dev.off()

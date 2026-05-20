@@ -155,7 +155,7 @@ cd cna
 `outdir` : desired output dir <br>
 `dna` : type of dna source (`FrTu`, for tumor biopsy / `cfDNA`) <br>
 `genome` : `hg19` or `hg38` <br>
-`bed_path` : path to exome bed file <br>
+`bed_path` : path to exome bed file (optional, use 'NULL' or leave empty to analyze whole genome) <br>
 `skip_normal_process` : set to `TRUE` one if you already processed a tumor (FrTu or cfDNA) sample for this patient in a previous run, to not have to reprocess the normal bam with alleleCount, if not, set to`FALSE`. If set to `TRUE`, the `outdir` has to be the same as in the previous run.
 
 ## Run ASCAT (local)

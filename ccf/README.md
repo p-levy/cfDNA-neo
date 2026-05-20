@@ -1,10 +1,18 @@
 # Cancer Cell Fraction / Variant Copy Number Calculations
-Scripts used to add **variant copy number** / **cancer cell fraction (ccf)** information to each variant present in the `variant_counts.tsv` files used as input. 
+Scripts used to add **variant copy number** / **cancer cell fraction (CCF)** information to each variant present in the `variant_counts.tsv` files used as input. 
 
-```
-ccf --version {1|2|3} [args...]
-```
-Optionally a variant annotation table (specified by `--nsm_annot`) can be provided, for example to add information on variant-derived neoepitopes or other annotations. Minimally, this annotation table **must contain** the following columns `CHROM	POS	REF	ALT` but can contain additonal columns, for example: 
+**Variant copy number / CCF** is estimated using the following formula:
+
+$$
+\text{CCF} = \frac{\text{VAF}}{\text{purity}} \times \Big[ (1 - \text{purity}) \times 2 + \text{purity} \times (\text{nMajorCN} + \text{nMinorCN}) \Big]
+$$
+
+`VAF`: variant allele frequency (from `variant_counts.tsv` file) <br>
+`purity`: tumor purity (from ASCAT or estimated from median VAF, for samples with no detectable CNA) <br>
+`nMajorCN`: major copy number (from ASCAT segments) <br>
+`nMinorCN`: minor copy number (from ASCAT segments) <br>	
+
+Optionally a variant annotation table (specified by `--nsm_annot`) can be provided, for example to add information on variant-derived **neoepitopes** or other annotations. Minimally, this annotation table **must contain** the following columns `CHROM	POS	REF	ALT` but can contain additonal columns, for example: 
 ```
 CHROM	POS	REF	ALT	Ensembl Gene name	Gene Name	cDNA change	AA change	Wt Epitope	Mut Epitope	immunogenic
 1	2426977	G	C	ENSG00000149527	PLCH2	c.G1167C	p.E389D	KLKKAASVEEGDEGQDSPGGQSRGA	KLKKAASVEEGDDGQDSPGGQSRGA	no
@@ -17,7 +25,10 @@ CHROM	POS	REF	ALT	Ensembl Gene name	Gene Name	cDNA change	AA change	Wt Epitope	M
 1	27878527	T	G	ENSG00000126705	AHDC1	c.A100C	p.T34P	LREPKYYPGGPPTPRPLLPTRPPAS	LREPKYYPGGPPPPRPLLPTRPPAS	no
 1	214170169	G	C	ENSG00000117707	PROX1	c.G291C	p.L97F	MPFPGATIISQLLKNNMNKNGGTEP	MPFPGATIISQLFKNNMNKNGGTEP	no
 ```
-
+### General use:
+```
+./ccf --version {1|2|3} [args...]
+```
 >See below for **version-specific usage**.
 
 ## Version 1: Merged VCF
@@ -48,8 +59,8 @@ options:
   --variants_counts_path VARIANTS_COUNTS_PATH
                         Path to variant read counts TSV
   --outdir OUTDIR       Output directory
-  --segs SEGS           ASCAT raw segments
-  --purity PURITY       Purity value for Tumor sample (ASCAT or 'vaf')
+  --segs SEGS           ASCAT/PURPLE raw segments
+  --purity PURITY       Purity value for Tumor sample (ASCAT value or 'vaf' for samples with no CNA)
   --min_tvaf MIN_TVAF   Minimum tumor VAF (default: 0.03)
   --min_alt MIN_ALT     Minimum ALT reads (default: 4)
   --min_cov MIN_COV     Minimum coverage (default: 9)
@@ -93,13 +104,13 @@ options:
                         Path to variant read counts TSV
   --outdir OUTDIR       Output directory
   --segs_Tumor_1 SEGS_TUMOR_1
-                        ASCAT raw segments for Tumor 1
+                        ASCAT/PURPLE raw segments for Tumor 1
   --segs_Tumor_2 SEGS_TUMOR_2
-                        ASCAT raw segments for Tumor 2
+                        ASCAT/PURPLE raw segments for Tumor 2
   --purity_Tumor_1 PURITY_TUMOR_1
-                        Purity value for Tumor 1 (ASCAT or 'vaf')
+                        Purity value for Tumor 1 (ASCAT value or 'vaf' for samples with no CNA)
   --purity_Tumor_2 PURITY_TUMOR_2
-                        Purity value for Tumor 2 (ASCAT or 'vaf')
+                        Purity value for Tumor 2 (ASCAT value or 'vaf' for samples with no CNA)
   --sample_type_1 SAMPLE_TYPE_1
                         Sample type for Tumor 1 (e.g. FrTu or cfDNA, same as
                         indicated for variant-counts step)
@@ -145,8 +156,8 @@ options:
   --variants_counts_path VARIANTS_COUNTS_PATH
                         Path to variant read counts TSV
   --outdir OUTDIR       Output directory
-  --segs SEGS           ASCAT raw segments
-  --purity PURITY       Purity value for Tumor sample (ASCAT or 'vaf')
+  --segs SEGS           ASCAT/PURPLE raw segments
+  --purity PURITY       Purity value for Tumor sample (ASCAT value or 'vaf' for samples with no CNA)
   --min_tvaf MIN_TVAF   Minimum tumor VAF (default: 0.03)
   --min_alt MIN_ALT     Minimum ALT reads (default: 4)
   --min_cov MIN_COV     Minimum coverage (default: 9)

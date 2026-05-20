@@ -58,7 +58,17 @@ args <- parser$parse_args()
 patient <- args$patient
 variants_counts_path <- args$variants_counts_path
 outdir <- args$outdir
-segs  <- fread(args$segs)
+segs <- fread(args$segs)
+
+# Check if segments file is PURPLE format and convert if needed
+if ("minorAlleleCopyNumber" %in% colnames(segs)) {
+  # Source the conversion function
+  source("convert_purple_to_ascat.R")
+  
+  # Convert PURPLE data to ASCAT format (returns data frame directly)
+  segs <- convert_purple_to_ascat(segs, sample_name = patient)
+}
+
 purity <- args$purity
 
 if (!is.null(args$bed_exome)) {bed_exome <- fread(args$bed_exome)}
@@ -126,11 +136,11 @@ if (!is.null(args$bed_exome)) {
         mutate(end = POS) %>%
         dplyr::rename(start = POS, chrom = CHROM)
     bed_mut_exome <- bt.intersect(bed_mut, bed_exome, u = TRUE) # u=TRUE to only report one entry per mutation, if at least it is in one of the bed intervals
-    bed_mut_exome <- bed_mut_exome %>% dplyr::rename(CHROM = V1, POS = V2)
-    bed_mut_exome$CHROM <- standardize_chr(bed_mut_exome$CHROM)
-    variants_counts <- bed_mut_exome %>%
-        dplyr::select(CHROM, POS) %>%
-        left_join(variants_counts, by = c("CHROM", "POS"))
+    
+    # Filter variants_counts to keep only mutations in exome
+    variants_counts_exome <- variants_counts %>%
+        semi_join(bed_mut_exome, by = c("CHROM" = "V1", "POS" = "V2"))
+    variants_counts <- variants_counts_exome
 }
 
 # Get the copy number from the segment files and annotate the mutation table

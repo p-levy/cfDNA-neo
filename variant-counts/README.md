@@ -89,7 +89,7 @@ Process a somatic variant call file (VCF) obtained from the variant caller **Sag
 	vcf_path \
 	tumor_name_vcf \
 	normal_name_vcf \
-	outdir \
+	outdir
 ```
 
 **Usage**: <br>
