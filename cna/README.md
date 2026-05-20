@@ -136,6 +136,7 @@ cd cna
 
 ./cna-docker \
 	patient \
+    tumor_sample_name \
 	threads \
 	sex \
 	tbam_path \
@@ -147,7 +148,8 @@ cd cna
 	skip_normal_process
 ```
 **Usage**: <br>
-`patient` : patient / sample name <br>
+`patient` : patient name <br>
+`tumor_sample_name` : tumor sample name <br>
 `threads` : number of CPUs to use when running ASCAT, e.g. `12` <br>
 `sex` : `XX` or `XY` (Run `bash checksex bam_file` if unknown) <br>
 `tbam_path` : path to tumor bam file <br>
@@ -168,6 +170,7 @@ cd cna
 
 ./cna \
 	patient \
+    tumor_sample_name \
 	threads \
 	sex \
 	tbam_path \

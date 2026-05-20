@@ -9,13 +9,14 @@ How to use:
 arg1: path to FrTu bam
 args2: path to normal bam
 args3: patient name
-args4: bed file (optional, use 'NULL' or leave empty to analyze whole genome)
-args5: path to ascat ref dir
-args6: n cores to use
-args7: sex ('XX' or 'XY')
-args8: genome (hg19 or hg38)
-args9: outdir
-args10: skip normal (TRUE/FALSE)
+args4: tumor sample name (e.g. Tumor-01)
+args5: bed file (optional, use 'NULL' or leave empty to analyze whole genome)
+args6: path to ascat ref dir
+args7: n cores to use
+args8: sex ('XX' or 'XY')
+args9: genome (hg19 or hg38)
+args10: outdir
+args11: skip normal (TRUE/FALSE)
 
       ")
   quit()
@@ -28,11 +29,12 @@ suppressPackageStartupMessages(library(ASCAT))
 tumourseqfile_path <- args[1]
 normalseqfile_path <- args[2]
 patient <- args[3]
-bedfile_path_raw <- args[4]
-ascat_ref_path <- args[5]
-threads <- args[6]
-sex = args[7] # 'XX' or 'XY'
-genome=args[8] # hg19 or hg38
+tumor_sample_name <- args[4]
+bedfile_path_raw <- args[5]
+ascat_ref_path <- args[6]
+threads <- args[7]
+sex = args[8] # 'XX' or 'XY'
+genome=args[9] # hg19 or hg38
 genome_number = gsub("hg", "", genome)
 
 # Handle optional BED file
@@ -42,8 +44,8 @@ if (is.null(bedfile_path_raw) || is.na(bedfile_path_raw) || bedfile_path_raw == 
   bedfile_path <- gsub("hg\\d{2}", genome, bedfile_path_raw)
 }
 
-outdir <- args[9]
-skip_normal_process <- as.logical(args[10])  # converts "TRUE"/"FALSE" to logical
+outdir <- args[10]
+skip_normal_process <- as.logical(args[11])  # converts "TRUE"/"FALSE" to logical
 
 setwd(outdir)
 
@@ -56,7 +58,7 @@ rt <- paste0(ascat_ref_path, "/RT_G1000_hg", genome_number, ".txt")
 ascat.prepareHTS(
   tumourseqfile = tumourseqfile_path,
   normalseqfile = normalseqfile_path,
-  tumourname = paste0(patient, "_FrTu"),
+  tumourname = paste0(tumor_sample_name, "_FrTu"),
   normalname = paste0(patient, "_Normal"),
   allelecounter_exe = "/opt/bin/alleleCounter",
   alleles.prefix = alleles,
@@ -69,7 +71,7 @@ ascat.prepareHTS(
   skip_allele_counting_tumour = FALSE,
   skip_allele_counting_normal = skip_normal_process) # set to TRUE if already done
 
-ascat.bc = ascat.loadData(Tumor_LogR_file = paste0(patient, "_FrTu_tumourLogR.txt"), Tumor_BAF_file = paste0(patient, "_FrTu_tumourBAF.txt"), Germline_LogR_file = paste0(patient, "_FrTu_normalLogR.txt"), Germline_BAF_file = paste0(patient, "_FrTu_normalBAF.txt"), gender = sex, genomeVersion = genome)
+ascat.bc = ascat.loadData(Tumor_LogR_file = paste0(tumor_sample_name, "_FrTu_tumourLogR.txt"), Tumor_BAF_file = paste0(tumor_sample_name, "_FrTu_tumourBAF.txt"), Germline_LogR_file = paste0(tumor_sample_name, "_FrTu_normalLogR.txt"), Germline_BAF_file = paste0(tumor_sample_name, "_FrTu_normalBAF.txt"), gender = sex, genomeVersion = genome)
 ascat.plotRawData(ascat.bc, img.prefix = "Before_correction_")
 ascat.bc = ascat.correctLogR(ascat.bc, GCcontentfile = gc, replictimingfile = rt)
 ascat.plotRawData(ascat.bc, img.prefix = "After_correction_")
