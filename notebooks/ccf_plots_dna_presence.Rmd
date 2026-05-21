@@ -1,0 +1,1580 @@
+---
+title: 'cfDNA Project: CCF Plots Report (DNA Presence)'
+author: 'Pierre Levy'
+date: '`r Sys.Date()`'
+output:
+    html_document:
+        toc: true
+        toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+    echo = FALSE,
+    message = FALSE,
+    warning = FALSE
+)
+library(tidyverse)
+library(data.table)
+library(DT)
+library(viridis)
+library(paletteer)
+library(ggridges)
+library(ggbeeswarm)
+library(patchwork)
+library(ggrepel)
+library(plotly)
+library(ggbreak)
+library(ggVennDiagram)
+
+setwd("/Users/plevy/Library/CloudStorage/OneDrive-VHIO/labagros/pierre/proj/collab/andrea/CCF_plots/dna_presence")
+```
+
+```{r}
+# Specify the directory path
+samples <- c(
+    "GOIGROS001",
+    "GOIGROS002",
+    "GOIGROS003",
+    "GOIGROS004",
+    "Motricolor002",
+    "GOIGROS008",
+    "TIL012",
+    "TIL015"
+)
+
+directory_path <- "/Users/plevy/Library/CloudStorage/OneDrive-VHIO/labagros/pierre/proj/collab/andrea"
+
+# Find all CCF.annot.tsv files in the specified directory for each sample
+files <- list()
+for (sample in samples) {
+    ccf_table_path <- list.files(
+        paste0(directory_path, "/", sample, "/min_callers_indels_2"),
+        full.names = TRUE,
+        pattern = "CCF.annot.tsv$"
+    )
+
+    files[[sample]] <- ccf_table_path
+}
+
+# Find all tested epitope files
+tested_epitopes_files <- list()
+for (sample in samples) {
+    tested_path <- list.files(
+        paste0(directory_path, "/", sample),
+        full.names = TRUE,
+        pattern = "tested_epitopes.txt"
+    )
+
+    tested_epitopes_files[[sample]] <- tested_path
+}
+
+# Find all epitope variant key files
+epitope_variant_key_files <- list()
+for (sample in samples) {
+    key_path <- list.files(
+        paste0(directory_path, "/", sample),
+        full.names = TRUE,
+        pattern = "epitope_variant_key.tsv"
+    )
+
+    epitope_variant_key_files[[sample]] <- key_path
+}
+```
+
+```{r, echo = TRUE}
+# POST VARIANT CALLING FILTERS
+# TVAF >=3%
+# Variant reads >= 4
+# Coverage >= 9 in respective tumor (FrTu OR cfDNA) and normal samples for all plots except for analysis involving CCF data (Coverage >= 9 in both tumor and normal samples (FrTu AND cfDNA AND Normal))
+# Called by 2 or more callers both SNV and INDELS
+# All mutations that normal VAF = 0
+# If normal has VAF, VAF >5X in tumor compared to normal
+
+# FILTERS FOR DNA PRESENCE
+# Minimum VAF and minimum ALT counts
+minVaf <- 0.01
+minAltReads <- 1
+# OR minimum VAF only
+minVaf_only <- 0.01
+
+# For CCF analysis
+# minimum coverage for all 3 sample types
+min_cov <- 9
+```
+
+```{r}
+# Function to create table with data from all each sample
+get_ccf <- function(x, y) { # The y is necessary for the purrr::imap function later to access the names of the elements of the named list
+    ccf_tbl <- fread(x)
+    # Change NA values in vaf_FrTu and vaf_cfDNA to 0
+    # NA for these vafs if no reads at all for REF and ALT for position in FrTu or cfDNA sample (especially for TIL patients as it was not a criteria for calling to have min coverage in all samples)
+    ccf_tbl$vaf_FrTu[is.na(ccf_tbl$vaf_FrTu)] <- 0
+    ccf_tbl$vaf_cfDNA[is.na(ccf_tbl$vaf_cfDNA)] <- 0
+    ccf_tbl <- ccf_tbl %>%
+        mutate(
+            sample = ifelse(y == "Motricolor002", "GOIGROS005", y),
+            dna_presence =
+                ifelse(((vaf_FrTu >= minVaf & vaf_cfDNA >= minVaf & ALT_counts_FrTu >= minAltReads & ALT_counts_cfDNA >= minAltReads) | (vaf_FrTu >= minVaf_only & vaf_cfDNA >= minVaf_only)), "Shared",
+                    ifelse((((vaf_FrTu >= minVaf & ALT_counts_FrTu >= minAltReads) & (vaf_cfDNA < minVaf | ALT_counts_cfDNA < minAltReads)) | (vaf_FrTu >= minVaf_only & vaf_cfDNA < minVaf_only)), "FrTu_only",
+                        ifelse((((vaf_FrTu < minVaf | ALT_counts_FrTu < minAltReads) & (vaf_cfDNA >= minVaf & ALT_counts_cfDNA >= minAltReads)) | (vaf_cfDNA >= minVaf_only & vaf_FrTu < minVaf_only)), "cfDNA_only",
+                            "undetermined"
+                        )
+                    )
+                ),
+            snv_indel = ifelse(str_detect(found_in, "INDEL"), "indel", "snv")
+        )
+
+    # Load epitope data
+    tested_epitopes <- data.table("Mut Epitope" = readLines(tested_epitopes_files[[y]]))
+    # Load epitope variant key
+    epitope_variant_key <- fread(epitope_variant_key_files[[y]])
+    # Annotate variant key if in jared's output or NA if not found
+    tested_key <- tested_epitopes %>% left_join(epitope_variant_key %>% dplyr::select(`Mut Epitope`, `Variant key`), by = "Mut Epitope") %>%
+        mutate(`Variant key` = ifelse(is.na(`Variant key`), "NA", `Variant key`))
+    # Add variant key short for easier matching
+    jared_key_epitope_tested <- tested_key %>% mutate(variant_key_short = gsub(" .*", "", `Variant key`))
+    # # Homogenize variant key between Rebeca and Jared's outputs
+    # jared_key_epitope_tested$`Variant key` <- gsub("-c.([ATCG-]+)\\d+([ATCG-])", " \\1>\\2", jared_key_epitope_tested$`Variant key`)
+    # Split variant key into chrom and pos, and create a new variant_key_short, with position of deletions adjusted by -1 if Jared's notation ("ATCG>-") (to match VCF notation)
+    jared_key_epitope_tested <- separate(jared_key_epitope_tested, variant_key_short, c("chrom", "pos"), ":") %>% separate(., `Variant key`, c("chrom_pos", "nt_change"), " ") %>%
+            rowwise() %>%
+            mutate(variant_key_short = ifelse(str_detect(`nt_change`, ">-"), paste0(chrom, ":", as.numeric(pos) - 1),
+                paste0(chrom, ":", pos)))
+    # readjust pos column
+    jared_key_epitope_tested$pos <- strsplit(jared_key_epitope_tested$variant_key_short, ":") %>% sapply(., function(x) x[2])
+    
+    # Add info if variant has been tested by TMG
+    ccf_tbl <- ccf_tbl %>% mutate(TMG_tested = ifelse(paste0(variant_key_short, nt_change) %in% paste0(jared_key_epitope_tested$variant_key_short, jared_key_epitope_tested$nt_change), "yes", "no"))
+
+    # summary dna presence per tested variants
+    joined <- jared_key_epitope_tested %>% left_join(ccf_tbl %>% dplyr::select(variant_key_short, dna_presence), by = "variant_key_short")
+    joined$dna_presence[is.na(joined$dna_presence)] <- "NA"
+
+    summary_tested_variants_dna_presence <- joined %>% distinct(chrom_pos, nt_change, .keep_all = TRUE) %>%
+    group_by(dna_presence) %>% summarize(count = n()) %>%
+        bind_rows(
+            tibble(dna_presence = "Total_tested_variants", count = sum(.$count))
+        ) %>% mutate(sample = ifelse(y == "Motricolor002", "GOIGROS005", y))
+
+    # write table with categories of tested variants
+    write.table(joined, file = paste0("tested_variants_dna_presence_categories_", y, ".tsv"), sep = "\t", quote = F, row.names = F)
+
+    # return table		
+    return(list(ccf_tbl = ccf_tbl, summary_tested = summary_tested_variants_dna_presence))
+}
+```
+
+# Data table for all patients
+```{r}
+# Update samples to include GOIGROS005
+samples <- c(
+    "GOIGROS001",
+    "GOIGROS002",
+    "GOIGROS003",
+    "GOIGROS004",
+    "GOIGROS005",
+    "GOIGROS008",
+    "TIL012",
+    "TIL015"
+)
+
+# Apply to all patients
+list_ccf <- purrr::imap(files, get_ccf)
+
+# Merge tables into one ccf table and keep only one row per mutation (not multiple rows if different epitopes)
+ccf_table_pre <- list_ccf %>%  purrr::map("ccf_tbl") %>%
+    bind_rows()
+
+ccf_table <- ccf_table_pre %>%
+    distinct(sample, POS, REF, ALT, immunogenic, .keep_all = TRUE)
+
+# # Remove non-immunogenic LASP1 epitope row 1954  ***************** DOUBLE CHECK ROW IF CHANGING INPUTS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# ccf_table <- ccf_table[-1954, ]
+
+# Remove "GROS" from sample names
+ccf_table$sample <- gsub("GROS0", "-", ccf_table$sample)
+
+# Change GOI-08 for GOI-06, TIL012 for GOI-07 and TIL015 for GOI-08
+ccf_table$sample <- gsub("GOI-08", "GOI-06", ccf_table$sample)
+ccf_table$sample <- gsub("TIL012", "GOI-07", ccf_table$sample)
+ccf_table$sample <- gsub("TIL015", "GOI-08", ccf_table$sample)
+
+# Export table
+write.table(ccf_table, file = "GOI_cohort_variants_CCF.tsv", sep = "\t", quote = F, row.names = F)
+
+```
+
+
+# Mutation burden and coding consequences
+### Number of Mutations
+```{r}
+ccf_summary <- ccf_table %>%
+    group_by(sample, coding_consequence) %>%
+    summarise(n_mutations = n()) %>%
+    spread(key = coding_consequence, value = n_mutations, fill = 0) %>%
+    mutate(total = non_synonymous + synonymous_or_noncoding)
+
+datatable(ccf_summary)
+```
+
+```{r}
+# Plot N
+ggplot(ccf_summary %>% pivot_longer(
+    cols = 2:3,
+    names_to = "coding_consequence"
+), aes(x = sample, y = value, fill = coding_consequence)) +
+    geom_bar(stat = "identity", position = "stack") +
+    labs(x = "Samples", y = "N Mutations", fill = "coding consequence") +
+    paletteer::scale_fill_paletteer_d("nbapalettes::wizards_city") +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+```
+
+### Percent of Mutations
+```{r}
+# Plot Percent
+ccf_summary <- ccf_table %>%
+    group_by(sample, coding_consequence) %>%
+    summarise(n_mutations = n(), .groups = "drop") %>%
+    group_by(sample) %>%
+    mutate(percent = round(n_mutations / sum(n_mutations) * 100, 2)) %>%
+    ungroup() %>%
+    select(-n_mutations) %>%
+    spread(key = coding_consequence, value = percent, fill = 0)
+
+datatable(ccf_summary)
+
+ggplot(ccf_summary %>% pivot_longer(
+    cols = 2:3,
+    names_to = "coding_consequence"
+), aes(x = sample, y = value, fill = coding_consequence)) +
+    geom_bar(stat = "identity", position = "stack") +
+    labs(x = "Samples", y = "% Mutations", fill = "coding consequence") +
+    paletteer::scale_fill_paletteer_d("nbapalettes::wizards_city") +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+```
+
+# Shared vs. sample-specific mutations
+
+## All mutations
+### Number of Mutations
+```{r}
+ccf_summary <- ccf_table %>%
+    group_by(sample, dna_presence) %>%
+    summarise(n_mutations = n()) %>%
+    spread(key = dna_presence, value = n_mutations, fill = 0)
+
+datatable(ccf_summary)
+```
+
+```{r}
+# Plot N
+ggplot(ccf_summary %>% pivot_longer(
+    cols = 2:4,
+    names_to = "dna_presence"
+), aes(x = sample, y = value, fill = dna_presence)) +
+    geom_bar(stat = "identity", position = "stack") +
+    labs(x = "Samples", y = "N", fill = "variant presence") +
+    scale_fill_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+```
+
+### Percent of Mutations
+```{r}
+# Plot Percent
+ccf_summary <- ccf_table %>%
+    group_by(sample, dna_presence) %>%
+    summarise(n_mutations = n(), .groups = "drop") %>%
+    group_by(sample) %>%
+    mutate(percent = round(n_mutations / sum(n_mutations) * 100, 2)) %>%
+    ungroup() %>%
+    # select(-n_mutations) %>%
+    spread(key = dna_presence, value = percent, fill = 0)
+
+#  All categories
+ggplot(
+    ccf_summary %>% pivot_longer(
+        cols = 3:5,
+        names_to = "dna_presence", values_to = "percent"
+    ) %>%
+        filter(percent > 0),
+    aes(x = sample, y = percent, fill = dna_presence)
+) +
+    geom_bar(stat = "identity", position = "fill") +
+    geom_text(aes(label = n_mutations), position = position_fill(vjust = 0.5), color = "white") +
+    labs(x = "Samples", y = "% Mutations", fill = "variant presence") +
+    scale_fill_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) +
+    ggtitle("Variant Presence") +
+    scale_y_continuous(labels = function(x) round(x * 100, 1))
+
+# Only Shared
+ggplot(
+    ccf_summary %>% pivot_longer(
+        cols = 3:5,
+        names_to = "dna_presence", values_to = "percent"
+    ) %>%
+        filter(percent > 0, dna_presence == "Shared"),
+    aes(x = sample, y = percent)
+) +
+    geom_bar(stat = "identity", fill = "#7CC6BF") +
+    geom_text(aes(label = n_mutations), position = position_stack(vjust = 0.5), color = "white") +
+    labs(x = "Samples", y = "% Mutations", fill = "variant presence") +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) +
+    theme(axis.title.x = element_blank()) +
+    ggtitle("Percent of shared mutations (from all mutations)")
+
+
+# Table Percent
+ccf_summary <- ccf_table %>%
+    group_by(sample, dna_presence) %>%
+    summarise(n_mutations = n(), .groups = "drop") %>%
+    group_by(sample) %>%
+    mutate(percent = round(n_mutations / sum(n_mutations) * 100, 2)) %>%
+    ungroup() %>%
+    select(-n_mutations) %>%
+    spread(key = dna_presence, value = percent, fill = 0)
+
+datatable(ccf_summary)
+```
+
+## NSMs
+### Number of Mutations
+```{r}
+ccf_summary <- ccf_table %>%
+    filter(coding_consequence == "non_synonymous") %>%
+    group_by(sample, dna_presence) %>%
+    summarise(n_mutations = n()) %>%
+    spread(key = dna_presence, value = n_mutations, fill = 0)
+
+datatable(ccf_summary)
+```
+
+```{r}
+# Plot N
+ggplot(ccf_summary %>% pivot_longer(
+    cols = 2:4,
+    names_to = "dna_presence"
+), aes(x = sample, y = value, fill = dna_presence)) +
+    geom_bar(stat = "identity", position = "stack") +
+    labs(x = "Samples", y = "N", fill = "variant presence") +
+    scale_fill_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+```
+
+### Percent of Mutations
+```{r}
+# Plot Percent
+ccf_summary <- ccf_table %>%
+    filter(coding_consequence == "non_synonymous") %>%
+    group_by(sample, dna_presence) %>%
+    summarise(n_mutations = n(), .groups = "drop") %>%
+    group_by(sample) %>%
+    mutate(percent = round(n_mutations / sum(n_mutations) * 100, 2)) %>%
+    ungroup() %>%
+    # select(-n_mutations) %>%
+    spread(key = dna_presence, value = percent, fill = 0)
+
+#  All categories
+ggplot(
+    ccf_summary %>% pivot_longer(
+        cols = 3:5,
+        names_to = "dna_presence", values_to = "percent"
+    ) %>%
+        filter(percent > 0),
+    aes(x = sample, y = percent, fill = dna_presence)
+) +
+    geom_bar(stat = "identity", position = "fill") +
+    geom_text(aes(label = n_mutations), position = position_fill(vjust = 0.5), color = "white") +
+    labs(x = "Samples", y = "% Mutations", fill = "variant presence") +
+    scale_fill_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) +
+    ggtitle("Variant Presence") +
+    scale_y_continuous(labels = function(x) round(x * 100, 1))
+
+# Only Shared
+ggplot(
+    ccf_summary %>% pivot_longer(
+        cols = 3:5,
+        names_to = "dna_presence", values_to = "percent"
+    ) %>%
+        filter(percent > 0, dna_presence == "Shared"),
+    aes(x = sample, y = percent)
+) +
+    geom_bar(stat = "identity", fill = "#7CC6BF") +
+    geom_text(aes(label = n_mutations), position = position_stack(vjust = 0.5), color = "white") +
+    labs(x = "Samples", y = "% Mutations", fill = "variant presence") +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) +
+    theme(axis.title.x = element_blank()) +
+    ggtitle("Percent of shared mutations (from NSM mutations)")
+
+# Table percent
+ccf_summary <- ccf_table %>%
+    filter(coding_consequence == "non_synonymous") %>%
+    group_by(sample, dna_presence) %>%
+    summarise(n_mutations = n(), .groups = "drop") %>%
+    group_by(sample) %>%
+    mutate(percent = round(n_mutations / sum(n_mutations) * 100, 2)) %>%
+    ungroup() %>%
+    select(-n_mutations) %>%
+    spread(key = dna_presence, value = percent, fill = 0)
+
+datatable(ccf_summary)
+```
+
+```{r}
+ggsave("Frequency_of_shared_NSM.pdf", height = 5, width = 4.5)
+```
+
+## Coding consequences
+### Number of Mutations
+```{r}
+ccf_summary <- ccf_table %>%
+    group_by(sample, dna_presence, coding_consequence) %>%
+    summarise(n_mutations = n())
+
+ccf_summary <- ccf_summary %>%
+    tidyr::unite(col = "group", c("coding_consequence", "dna_presence"), sep = ".") %>%
+    pivot_wider(
+        names_from = group,
+        values_from = n_mutations,
+        values_fill = list(n_mutations = 0)
+    )
+
+datatable(ccf_summary)
+```
+
+### Percent of Mutations
+```{r}
+ccf_summary_percent <- ccf_table %>%
+    group_by(sample, dna_presence, coding_consequence) %>%
+    summarise(n_mutations = n(), .groups = "drop") %>%
+    group_by(sample, coding_consequence) %>%
+    mutate(percent = round(n_mutations / sum(n_mutations) * 100, 2)) %>%
+    ungroup()
+
+
+ggplot(
+    ccf_summary_percent %>% filter(coding_consequence == "non_synonymous"),
+    aes(x = dna_presence, y = n_mutations)
+) +
+    geom_bar(stat = "identity", aes(fill = dna_presence)) +
+    geom_text(aes(label = paste0(percent, "%")), size = 2.5, vjust = -0.4) +
+    scale_fill_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+    facet_wrap(~sample, scales = "free") +
+    scale_y_continuous(expand = expansion(mult = c(0.1, 0.5))) + # Otherwise we have the percentage geom_text hidden by the sample name boxes
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) +
+    labs(fill = "Variant presence") +
+    ylab("Number of NSM")
+
+ggsave("Summary_Number_NSMs.pdf", width = 6, height = 6)
+
+
+ccf_summary_percent <- ccf_summary_percent %>%
+    select(-n_mutations) %>%
+    tidyr::unite(col = "group", c("coding_consequence", "dna_presence"), sep = ".") %>%
+    pivot_wider(
+        names_from = group,
+        values_from = percent,
+        values_fill = list(percent = 0)
+    )
+
+datatable(ccf_summary_percent)
+```
+
+## SNV vs Indels
+### Number of Mutations
+```{r}
+ccf_summary <- ccf_table %>%
+    group_by(sample, dna_presence, snv_indel) %>%
+    summarise(n_mutations = n())
+
+ccf_summary <- ccf_summary %>%
+    tidyr::unite(col = "group", c("dna_presence", "snv_indel"), sep = ".") %>%
+    pivot_wider(
+        names_from = group,
+        values_from = n_mutations,
+        values_fill = list(n_mutations = 0)
+    )
+
+datatable(ccf_summary)
+```
+
+# Lollipop plots
+## All mutations
+We are showing here the total number of mutations (all kind) for the FrTu (FrTu_only + Shared) and cfDNA (cfDNA + Shared) samples
+```{r}
+lollipop_table <- ccf_summary %>% mutate(total_FrTu = sum(c_across(matches("FrTu|Shared"))))
+lollipop_table <- lollipop_table %>% mutate(total_cfDNA = sum(c_across(matches("cfDNA|Shared"))))
+
+lollipop_Frtu_all <- ggplot(lollipop_table, aes(x = sample, y = log10(total_FrTu))) +
+    geom_segment(aes(x = sample, xend = sample, y = 0, yend = log10(total_FrTu)), color = "#D9D8D4", linewidth = 1) +
+    geom_point(color = "#D9D8D4", size = 5) +
+    coord_flip() +
+    theme_classic() +
+    theme(
+        plot.title = element_blank(),
+        axis.text = element_text(size = 12),
+        legend.position = "none",
+        axis.text.y = element_text(margin = margin(0, 10, 0, 0), hjust = 0, vjust = 0.5),
+    ) +
+    geom_text(aes(label = total_FrTu), size = 3.5, vjust = -1.25) +
+    ylim(0, 5) +
+    theme(aspect.ratio = 1) +
+    theme(
+        axis.title.y = element_blank()
+    )
+
+lollipop_Frtu_all <- lollipop_Frtu_all + labs(y = "FrTu Total Mutations (Log10)")
+
+# Lollipop cfDNA_all_mutations
+lollipop_cfDNA_all <- ggplot(lollipop_table, aes(x = sample, y = log10(total_cfDNA))) +
+    geom_segment(aes(x = sample, xend = sample, y = 0, yend = log10(total_cfDNA)), color = "#FCC557", linewidth = 1) +
+    geom_point(color = "#FCC557", size = 5) +
+    coord_flip() +
+    theme_classic() +
+    theme(
+        plot.title = element_blank(),
+        axis.text = element_text(size = 12),
+        legend.position = "none"
+    ) +
+    geom_text(aes(label = total_cfDNA), size = 3.5, vjust = -1.25) +
+    scale_y_reverse(lim = c(5, 0)) +
+    theme(aspect.ratio = 1) +
+    theme(
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank()
+    ) +
+    scale_x_discrete(position = "top")
+
+lollipop_cfDNA_all <- lollipop_cfDNA_all + labs(y = "cfDNA Total Mutations (Log10)")
+
+patchwork <- lollipop_cfDNA_all + lollipop_Frtu_all
+
+patchwork
+```
+
+```{r}
+# Save lollipop as pdf
+ggsave("lollipop_all_mut.pdf")
+```
+
+## NSMs
+We are showing here the total number of NSMs for the FrTu (FrTu_only + Shared) and cfDNA (cfDNA + Shared) samples
+
+```{r}
+ccf_summary <- ccf_table %>%
+    group_by(sample, dna_presence, coding_consequence) %>%
+    summarise(n_mutations = n())
+
+ccf_summary <- ccf_summary %>%
+    tidyr::unite(col = "group", c("coding_consequence", "dna_presence"), sep = ".") %>%
+    pivot_wider(
+        names_from = group,
+        values_from = n_mutations,
+        values_fill = list(n_mutations = 0)
+    )
+```
+
+```{r}
+lollipop_table <- ccf_summary %>% mutate(nsm_FrTu = sum(c_across(matches("non_synonymous.FrTu|non_synonymous.Shared"))))
+lollipop_table <- lollipop_table %>% mutate(nsm_cfDNA = sum(c_across(matches("non_synonymous.cfDNA|non_synonymous.Shared"))))
+
+lollipop_Frtu_all <- ggplot(lollipop_table, aes(x = sample, y = log10(nsm_FrTu))) +
+    geom_segment(aes(x = sample, xend = sample, y = 0, yend = log10(nsm_FrTu)), color = "#D9D8D4", linewidth = 1) +
+    geom_point(color = "#D9D8D4", size = 5) +
+    coord_flip() +
+    theme_classic() +
+    theme(
+        plot.title = element_blank(),
+        axis.text = element_text(size = 12),
+        legend.position = "none",
+        axis.text.y = element_text(margin = margin(0, 10, 0, 0), hjust = 0, vjust = 0.5),
+    ) +
+    geom_text(aes(label = nsm_FrTu), size = 3.5, vjust = -1.25) +
+    ylim(0, 5) +
+    theme(aspect.ratio = 1) +
+    theme(
+        axis.title.y = element_blank()
+    )
+
+lollipop_Frtu_all <- lollipop_Frtu_all + labs(y = "FrTu NSM Mutations (Log10)")
+
+# Lollipop cfDNA_all_mutations
+lollipop_cfDNA_all <- ggplot(lollipop_table, aes(x = sample, y = log10(nsm_cfDNA))) +
+    geom_segment(aes(x = sample, xend = sample, y = 0, yend = log10(nsm_cfDNA)), color = "#FCC557", linewidth = 1) +
+    geom_point(color = "#FCC557", size = 5) +
+    coord_flip() +
+    theme_classic() +
+    theme(
+        plot.title = element_blank(),
+        axis.text = element_text(size = 12),
+        legend.position = "none"
+    ) +
+    geom_text(aes(label = nsm_cfDNA), size = 3.5, vjust = -1.25) +
+    scale_y_reverse(lim = c(5, 0)) +
+    theme(aspect.ratio = 1) +
+    theme(
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank()
+    ) +
+    scale_x_discrete(position = "top")
+
+lollipop_cfDNA_all <- lollipop_cfDNA_all + labs(y = "cfDNA NSM Mutations (Log10)")
+
+patchwork <- lollipop_cfDNA_all + lollipop_Frtu_all
+
+patchwork
+```
+
+```{r}
+# Save lollipop as pdf
+ggsave("lollipop_NSM.pdf")
+```
+
+
+# Categories of TMG tested variants
+```{r}
+# Merge list tables into one summary table 
+summary_tested_table <- list_ccf %>%  purrr::map("summary_tested") %>%
+    bind_rows()
+
+# Remove "GROS" from sample names
+summary_tested_table$sample <- gsub("GROS0", "-", summary_tested_table$sample)
+
+# Change GOI-08 for GOI-06, TIL012 for GOI-07 and TIL015 for GOI-08
+summary_tested_table$sample <- gsub("GOI-08", "GOI-06", summary_tested_table$sample)
+summary_tested_table$sample <- gsub("TIL012", "GOI-07", summary_tested_table$sample)
+summary_tested_table$sample <- gsub("TIL015", "GOI-08", summary_tested_table$sample)
+
+datatable(summary_tested_table)
+```
+
+```{r}
+# Plots
+percent_table <- summary_tested_table %>% filter(dna_presence != "Total_tested_variants") %>%
+  group_by(sample) %>%
+  mutate(
+    percent = round(100 * count / sum(count), 2)
+  ) %>%
+  ungroup()
+
+ggplot(
+    percent_table,
+    aes(x = sample, y = percent, fill = dna_presence)
+) +
+    geom_bar(stat = "identity", position = "fill") +
+    geom_text(aes(label = count), position = position_fill(vjust = 0.5), color = "white") +
+    labs(x = "Samples", y = "% Mutations", fill = "variant presence") +
+    scale_fill_manual(values = c("#FCC557", "#D9D8D4", "grey40", "#7CC6BF")) +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 0.5)) +
+    ggtitle("Variant Presence") +
+    scale_y_continuous(labels = function(x) round(x * 100, 1))
+
+ggsave("Summary_TMG_tested_variants.pdf", width = 7, height = 6)
+```
+
+# CCF plots
+
+```{r, echo = TRUE}
+# Filter ccf_table to keep mutations with min_cov in all three samples (FrTu, cfDNA and Normal) and filter out mutations with CN == 0 or NA
+ccf_table <- ccf_table %>% 
+    dplyr::filter(
+        cov_FrTu >= min_cov & cov_cfDNA >= min_cov & cov_Normal >= min_cov & nMajor_cfDNA != 0 & nMajor_FrTu != 0
+    )
+```
+
+### No limit at CCF=1
+```{r, fig.width=10, fig.height=6.5}
+p <- ggplot(ccf_table, aes(x = ccf_FrTu, y = ccf_cfDNA, color = dna_presence)) +
+    geom_point(alpha = 0.3) +
+    facet_wrap(~sample, scales = "free") +
+    scale_color_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+    theme_classic()
+
+p
+```
+
+<br>
+<br>
+
+### CCF plots with density
+
+```{r}
+# Add gene name info in TIL012/GOI-07 and TIL015/GOI-08 samples (because ran in our pipeline and not in Jared's like GOI patients)
+ccf_table$`gene_name` <- ifelse(
+    ccf_table$sample %in% c("GOI-07", "GOI-08"), gsub("missense_variant.*_([A-Z0-9]*)_ENST.*", "\\1", ccf_table$`Effects`),
+    ifelse(
+        ccf_table$sample == "GOI-06", gsub(".*_([A-Z0-9]+)_uc.*", "\\1", ccf_table$`Effects`),
+        ccf_table$`Gene Name`))
+```
+
+```{r ccf plots with density no limit at 1}
+samples <- unique(ccf_table$sample) # necessary as we changed the names!
+for (i in samples) {
+    plot_table <- ccf_table %>%
+        filter(sample == i)
+
+    p <- ggplot(
+        plot_table,
+        aes(
+            x = ccf_FrTu, y = ccf_cfDNA, color = dna_presence,
+            text = paste0(
+                "REF_counts_FrTu: ", REF_counts_FrTu, "\n",
+                "ALT_counts_FrTu: ", ALT_counts_FrTu, "\n",
+                "REF_counts_cfDNA: ", REF_counts_cfDNA, "\n",
+                "ALT_counts_cfDNA: ", ALT_counts_cfDNA, "\n",
+                "REF_counts_Normal: ", REF_counts_Normal, "\n",
+                "ALT_counts_Normal: ", ALT_counts_Normal, "\n",
+                "nMajor_FrTu: ", nMajor_FrTu, "\n",
+                "nMinor_FrTu: ", nMinor_FrTu, "\n",
+                "nMajor_cfDNA: ", nMajor_cfDNA, "\n",
+                "nMinor_cfDNA: ", nMinor_cfDNA, "\n"
+            )
+        )
+    ) +
+        geom_point(alpha = 0.3) +
+        scale_color_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+        theme_classic() +
+        theme(legend.position = "none")
+
+    dens1 <- ggplot(plot_table, aes(x = ccf_FrTu, y = dna_presence, fill = dna_presence)) +
+        geom_density_ridges(alpha = 0.4) +
+        scale_fill_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+        theme_void() +
+        theme(legend.position = "none")
+
+    dens2 <- ggplot(plot_table, aes(x = ccf_cfDNA, y = dna_presence, fill = dna_presence)) +
+        geom_density_ridges(alpha = 0.4) +
+        theme(legend.position = "none") +
+        coord_flip() +
+        scale_fill_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+        theme_void()
+
+    hist1 <- ggplot(plot_table, aes(x = ccf_FrTu, fill = dna_presence)) +
+        geom_histogram(binwidth = 0.05) +
+        scale_fill_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+        theme_classic() +
+        theme(
+            axis.title.x = element_blank(),
+            axis.text.x = element_blank(),
+            axis.ticks.x = element_blank(),
+            axis.line.x = element_blank()
+        ) +
+        scale_y_reverse() +
+        theme(legend.position = "none")
+
+    hist2 <- ggplot(plot_table, aes(x = ccf_cfDNA, fill = dna_presence)) +
+        geom_histogram(binwidth = 0.05) +
+        scale_fill_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+        theme_classic() +
+        theme(
+            axis.title.y = element_blank(),
+            axis.text.y = element_blank(),
+            axis.ticks.y = element_blank(),
+            axis.line.y = element_blank(),
+            axis.text.x = element_text(angle = 90)
+        ) +
+        coord_flip() +
+        scale_y_reverse() +
+        theme(legend.position = "none")
+
+    patch_plot <- plot_spacer() + dens1 + plot_spacer() +
+        hist2 + p + dens2 +
+        plot_spacer() + hist1 + plot_spacer() +
+        plot_layout(ncol = 3, nrow = 3, widths = c(1, 5, 1), heights = c(1, 5, 1)) +
+        plot_annotation(title = i)
+
+    ggsave(plot = patch_plot, filename = paste0("CCF_density_", i, ".png"))
+
+    # # 	# export plotly
+    # widget <- ggplotly(p)
+    # htmlwidgets::saveWidget(widget, file = paste0("CCF_density_", i, ".html"))
+}
+```
+
+
+```{r ccf plots with density limit at 1}
+for (i in samples) {
+    plot_table <- ccf_table %>%
+        mutate(
+            ccf_FrTu = ifelse(ccf_FrTu >= 1, 1, ccf_FrTu),
+            ccf_cfDNA = ifelse(ccf_cfDNA >= 1, 1, ccf_cfDNA)
+        ) %>%
+        filter(sample == i)
+
+    p <- ggplot(
+        plot_table,
+        aes(x = ccf_FrTu, y = ccf_cfDNA, color = dna_presence)
+    ) +
+        geom_point(alpha = 0.3) +
+        scale_color_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+        geom_point(plot_table %>% dplyr::filter(immunogenic == "yes"), mapping = aes(x = ccf_FrTu, y = ccf_cfDNA), shape = 8, color = "#333333", size = 2) +
+        geom_text_repel(plot_table %>% dplyr::filter(immunogenic == "yes"), mapping = aes(x = ccf_FrTu, y = ccf_cfDNA, label = gene_name),
+        color = "grey30", size = 3.3,
+        min.segment.length = unit(0, "lines"), segment.color = "grey",
+        max.overlaps = Inf,
+        box.padding = 0.5,
+        fontface = "italic", force = 100, max.time = 50
+    ) +
+        theme_classic() +
+        scale_x_continuous(
+        limits = c(-0.1, 1.2),
+        breaks = c(0, 0.25, 0.5, 0.75, 1)
+    ) +
+    scale_y_continuous(
+        limits = c(-0.1, 1.2),
+        breaks = c(0, 0.25, 0.5, 0.75, 1)
+    ) +
+        theme(legend.position = "none")
+
+    dens1 <- ggplot(plot_table, aes(x = ccf_FrTu, y = dna_presence, fill = dna_presence)) +
+        geom_density_ridges(alpha = 0.4) +
+        xlim(-0.1, 1.2) +
+        scale_fill_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+        theme_void() +
+        theme(legend.position = "none")
+
+    dens2 <- ggplot(plot_table, aes(x = ccf_cfDNA, y = dna_presence, fill = dna_presence)) +
+        geom_density_ridges(alpha = 0.4) +
+        theme(legend.position = "none") +
+        xlim(-0.1, 1.2) +
+        coord_flip() +
+        scale_fill_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+        theme_void()
+
+    hist1 <- ggplot(plot_table, aes(x = ccf_FrTu, fill = dna_presence)) +
+        geom_histogram(binwidth = 0.05) +
+        xlim(-0.1, 1.2) +
+        scale_fill_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+        theme_classic() +
+        theme(
+            axis.title.x = element_blank(),
+            axis.text.x = element_blank(),
+            axis.ticks.x = element_blank(),
+            axis.line.x = element_blank()
+        ) +
+        scale_y_reverse() +
+        theme(legend.position = "none")
+
+    hist2 <- ggplot(plot_table, aes(x = ccf_cfDNA, fill = dna_presence)) +
+        geom_histogram(binwidth = 0.05) +
+        xlim(-0.1, 1.2) +
+        scale_fill_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+        theme_classic() +
+        theme(
+            axis.title.y = element_blank(),
+            axis.text.y = element_blank(),
+            axis.ticks.y = element_blank(),
+            axis.line.y = element_blank(),
+            axis.text.x = element_text(angle = 90)
+        ) +
+        coord_flip() +
+        scale_y_reverse() +
+        theme(legend.position = "none")
+
+    patch_plot <- plot_spacer() + dens1 + plot_spacer() +
+        hist2 + p + dens2 +
+        plot_spacer() + hist1 + plot_spacer() +
+        plot_layout(ncol = 3, nrow = 3, widths = c(1, 5, 1), heights = c(1, 5, 1)) +
+        plot_annotation(title = paste0(i, " CCF max == 1"))
+
+    ggsave(plot = patch_plot, filename = paste0("CCF_density_", i, "_CCFmax1.png"))
+    ggsave(plot = patch_plot, filename = paste0("CCF_density_", i, "_CCFmax1.pdf"))
+}
+```
+
+```{r out.width = "100%", fig.align='center', fig.width=10, fig.height=9}
+# Include plot in R Markdown html report
+files <- list.files(
+    path = getwd(),
+    pattern = "^CCF_density_(.*).png$",
+    full.names = TRUE
+)
+knitr::include_graphics(files, error = FALSE)
+```
+
+# VAF plots
+```{r vaf plots with density}
+for (i in samples) {
+    plot_table <- ccf_table %>%
+        # mutate(
+        #     vaf_FrTu = vaf_FrTu * 100,
+        #     vaf_cfDNA = vaf_cfDNA * 100
+        # ) %>%
+        filter(sample == i)
+    
+    # Change level to have shared in the background  
+    plot_table$dna_presence <- factor(plot_table$dna_presence, levels = c("Shared", "cfDNA_only", "FrTu_only"))
+    plot_table <- plot_table %>% arrange(dna_presence)
+    
+    p <- ggplot(
+        plot_table,
+        aes(x = vaf_FrTu, y = vaf_cfDNA, color = dna_presence)
+    ) +
+        geom_point(alpha = 0.3) +
+        scale_color_manual(values = c("#7CC6BF", "#FCC557", "#D9D8D4")) +
+        geom_point(plot_table %>% dplyr::filter(immunogenic == "yes"), mapping = aes(x = vaf_FrTu, y = vaf_cfDNA), shape = 8, color = "#333333", size = 2) +
+    #     geom_text_repel(plot_table %>% dplyr::filter(immunogenic == "yes"), mapping = aes(x = vaf_FrTu, y = vaf_cfDNA, label = `Gene Name`),
+    #     color = "grey30", size = 3.3,
+    #     min.segment.length = unit(0, "lines"), segment.color = "grey",
+    #     max.overlaps = Inf,
+    #     box.padding = 0.5,
+    #     fontface = "italic", force = 100, max.time = 50
+    # ) +
+        theme_classic() +
+        scale_x_continuous(
+        limits = c(-0.1, 1.2),
+        breaks = c(0, 0.25, 0.5, 0.75, 1)
+    ) +
+    scale_y_continuous(
+        limits = c(-0.1, 1.2),
+        breaks = c(0, 0.25, 0.5, 0.75, 1)
+    ) +
+        theme(legend.position = "none")
+
+    dens1 <- ggplot(plot_table, aes(x = vaf_FrTu, y = dna_presence, fill = dna_presence)) +
+        geom_density_ridges(alpha = 0.4) +
+        xlim(-0.1, 1.2) +
+        scale_fill_manual(values = c("#7CC6BF", "#FCC557", "#D9D8D4")) +
+        theme_void() +
+        theme(legend.position = "none")
+
+    dens2 <- ggplot(plot_table, aes(x = vaf_cfDNA, y = dna_presence, fill = dna_presence)) +
+        geom_density_ridges(alpha = 0.4) +
+        theme(legend.position = "none") +
+        xlim(-0.1, 1.2) +
+        coord_flip() +
+        scale_fill_manual(values = c("#7CC6BF", "#FCC557", "#D9D8D4")) +
+        theme_void()
+
+    hist1 <- ggplot(plot_table, aes(x = vaf_FrTu, fill = dna_presence)) +
+        geom_histogram(binwidth = 0.05) +
+        xlim(-0.1, 1.2) +
+        scale_fill_manual(values = c("#7CC6BF", "#FCC557", "#D9D8D4")) +
+        theme_classic() +
+        theme(
+            axis.title.x = element_blank(),
+            axis.text.x = element_blank(),
+            axis.ticks.x = element_blank(),
+            axis.line.x = element_blank()
+        ) +
+        scale_y_reverse() +
+        theme(legend.position = "none")
+
+    hist2 <- ggplot(plot_table, aes(x = vaf_cfDNA, fill = dna_presence)) +
+        geom_histogram(binwidth = 0.05) +
+        xlim(-0.1, 1.2) +
+        scale_fill_manual(values = c("#7CC6BF", "#FCC557", "#D9D8D4")) +
+        theme_classic() +
+        theme(
+            axis.title.y = element_blank(),
+            axis.text.y = element_blank(),
+            axis.ticks.y = element_blank(),
+            axis.line.y = element_blank(),
+            axis.text.x = element_text(angle = 90)
+        ) +
+        coord_flip() +
+        scale_y_reverse() +
+        theme(legend.position = "none")
+
+    patch_plot <- plot_spacer() + dens1 + plot_spacer() +
+        hist2 + p + dens2 +
+        plot_spacer() + hist1 + plot_spacer() +
+        plot_layout(ncol = 3, nrow = 3, widths = c(1, 5, 1), heights = c(1, 5, 1)) +
+        plot_annotation(title = paste0(i, " VAF"))
+
+    ggsave(plot = patch_plot, filename = paste0("VAF_density_", i, ".png"))
+    ggsave(plot = patch_plot, filename = paste0("VAF_density_", i, ".pdf"))
+}
+```
+
+```{r}
+# VAF plots GOI-05 ZOOMED
+plot_table <- ccf_table %>%
+        # mutate(
+        #     vaf_FrTu = vaf_FrTu * 100,
+        #     vaf_cfDNA = vaf_cfDNA * 100
+        # ) %>%
+        filter(sample == "GOI-05")
+
+# Change level to have shared in the background  
+plot_table$dna_presence <- factor(plot_table$dna_presence, levels = c("Shared", "cfDNA_only", "FrTu_only"))
+plot_table <- plot_table %>% arrange(dna_presence)
+
+p <- ggplot(
+    plot_table,
+    aes(x = vaf_FrTu, y = vaf_cfDNA, color = dna_presence)
+) +
+    geom_point(alpha = 0.3) +
+    scale_color_manual(values = c("#7CC6BF", "#FCC557", "#D9D8D4")) +
+    # geom_point(plot_table %>% dplyr::filter(immunogenic == "yes"), mapping = aes(x = vaf_FrTu, y = vaf_cfDNA), shape = 8, color = "#333333", size = 2) +
+#     geom_text_repel(plot_table %>% dplyr::filter(immunogenic == "yes"), mapping = aes(x = vaf_FrTu, y = vaf_cfDNA, label = `Gene Name`),
+#     color = "grey30", size = 3.3,
+#     min.segment.length = unit(0, "lines"), segment.color = "grey",
+#     max.overlaps = Inf,
+#     box.padding = 0.5,
+#     fontface = "italic", force = 100, max.time = 50
+# ) +
+    theme_classic() +
+    scale_x_continuous(
+    limits = c(-0.05, 0.55),
+    breaks = c(0, 0.1, 0.2, 0.3, 0.4, 0.5)
+) +
+scale_y_continuous(
+    limits = c(-0.05, 0.55),
+    breaks = c(0, 0.1, 0.2, 0.3, 0.4, 0.5)
+) +
+    theme(legend.position = "none")
+
+dens1 <- ggplot(plot_table, aes(x = vaf_FrTu, y = dna_presence, fill = dna_presence)) +
+    geom_density_ridges(alpha = 0.4) +
+    xlim(-0.05, 0.55) +
+    scale_fill_manual(values = c("#7CC6BF", "#FCC557", "#D9D8D4")) +
+    theme_void() +
+    theme(legend.position = "none")
+
+dens2 <- ggplot(plot_table, aes(x = vaf_cfDNA, y = dna_presence, fill = dna_presence)) +
+    geom_density_ridges(alpha = 0.4) +
+    theme(legend.position = "none") +
+    xlim(-0.05, 0.55) +
+    coord_flip() +
+    scale_fill_manual(values = c("#7CC6BF", "#FCC557", "#D9D8D4")) +
+    theme_void()
+
+hist1 <- ggplot(plot_table, aes(x = vaf_FrTu, fill = dna_presence)) +
+    geom_histogram(binwidth = 0.05) +
+    xlim(-0.05, 0.55) +
+    scale_fill_manual(values = c("#7CC6BF", "#FCC557", "#D9D8D4")) +
+    theme_classic() +
+    theme(
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.x = element_blank()
+    ) +
+    scale_y_reverse() +
+    theme(legend.position = "none")
+
+hist2 <- ggplot(plot_table, aes(x = vaf_cfDNA, fill = dna_presence)) +
+    geom_histogram(binwidth = 0.05) +
+    xlim(-0.05, 0.55) +
+    scale_fill_manual(values = c("#7CC6BF", "#FCC557", "#D9D8D4")) +
+    theme_classic() +
+    theme(
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
+        axis.text.x = element_text(angle = 90)
+    ) +
+    coord_flip() +
+    scale_y_reverse() +
+    theme(legend.position = "none")
+
+patch_plot <- plot_spacer() + dens1 + plot_spacer() +
+    hist2 + p + dens2 +
+    plot_spacer() + hist1 + plot_spacer() +
+    plot_layout(ncol = 3, nrow = 3, widths = c(1, 5, 1), heights = c(1, 5, 1)) +
+    plot_annotation(title = paste0("GOI-05", " VAF Zoomed"))
+
+ggsave(plot = patch_plot, filename = paste0("VAF_density_GOI-05_ZOOM.png"))
+ggsave(plot = patch_plot, filename = paste0("VAF_density_GOI-05_ZOOM.pdf"))
+```
+
+```{r out.width = "100%", fig.align='center', fig.width=10, fig.height=9}
+# Include plot in R Markdown html report
+files <- list.files(
+    path = getwd(),
+    pattern = "^VAF_density_(.*).png$",
+    full.names = TRUE
+)
+knitr::include_graphics(files, error = FALSE)
+```
+
+# DNA presence Shared according to clonality
+#### In FrTu
+```{r}
+plot_table <- ccf_table %>%
+    filter(coding_consequence == "non_synonymous", dna_presence %in% c("Shared", "FrTu_only")) %>%
+    mutate(
+        FrTu_clonal = ifelse(ccf_FrTu >= 0.9, "clonal", "subclonal")
+    )
+
+detected_cfDNA <- ccf_table %>% filter(coding_consequence == "non_synonymous", dna_presence %in% c("Shared", "cfDNA_only"))
+n_detected_cfDNA <- detected_cfDNA %>% group_by(sample) %>% summarise(n_detected_cfDNA = n())
+
+# Plot Percent
+plot_summary <- plot_table %>%
+    group_by(sample, FrTu_clonal, dna_presence) %>%
+    summarise(n_mutations = n(), .groups = "drop") %>%
+    complete(sample, FrTu_clonal, dna_presence, fill = list(n_mutations = 0)) %>% # ensures entry for GOI-04 FrTu clonal even if 0 mutations
+    group_by(sample, FrTu_clonal) %>%
+    mutate(percent = round(n_mutations / sum(n_mutations) * 100, 2)) %>%
+    ungroup()
+# Change labels dna_presence to be more easy to understand
+plot_summary$dna_presence <- gsub("FrTu_only", "Not detected in cfDNA", plot_summary$dna_presence)
+plot_summary$dna_presence <- gsub("Shared", "Detected in cfDNA", plot_summary$dna_presence)
+
+# Merge to add N Mutations detected in cfDNA samples
+plot_summary <- plot_summary %>% left_join(n_detected_cfDNA, by = "sample")
+
+# Plot with GOI-02 and GOI-03
+ggplot(plot_summary, aes(x = FrTu_clonal, y = percent)) +
+    geom_line(aes(group = sample), linewidth = 0.7, alpha = 0.4) +
+    geom_point(aes(color = sample, size = log10(n_detected_cfDNA)), alpha = 0.7) +
+    scale_color_manual(values = c("#00B8AAFF", "#000000", "#FD625EFF", "#F2C811FF", "#5F6B6DFF", "#8AD4EBFF", "#FE9666FF", "#A66999FF")) +
+    facet_wrap(~dna_presence) +
+    labs(
+      x = "Clonality in Tumor Biopsy", 
+      y = "% NSMs", 
+      color = "Patient", 
+      size = "Total NSMs in cfDNA"
+    ) +
+    scale_size_continuous(
+      breaks = log10(c(10, 50, 250, 1000, 5000)),  # Log-transformed values
+      labels = c(10, 50, 250, 1000, 5000)  # Linear values for legend
+    ) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    theme_classic()
+
+ggsave("cfDNA_detection_by_FrTu_clonality.pdf", width = 6, height = 4)
+
+# Function to run paired t-test
+run_paired_ttest <- function(plot_summary) {
+  plot_summary_wide <- plot_summary %>%
+    select(sample, FrTu_clonal, percent) %>%
+    pivot_wider(names_from = FrTu_clonal, values_from = percent)  # Wide format for paired test
+  
+  # Check if both "clonal" and "subclonal" exist in this subset
+  if (all(c("clonal", "subclonal") %in% names(plot_summary_wide))) {
+    ttest <- t.test(plot_summary_wide$clonal, plot_summary_wide$subclonal, paired = TRUE)
+    return(data.frame(dna_presence = unique(plot_summary$dna_presence), p_value = ttest$p.value))
+  } else {
+    return(data.frame(dna_presence = unique(plot_summary$dna_presence), p_value = NA))
+  }
+}
+
+# Apply test for each dna_presence group
+paired_ttest_results <- plot_summary %>%
+  group_by(dna_presence) %>%
+  group_split() %>%
+  lapply(run_paired_ttest) %>%
+  bind_rows()
+
+print(paired_ttest_results)
+
+# Plot without GOI-02 and GOI-03
+plot_summary <- plot_summary %>% filter(!sample %in% c("GOI-02", "GOI-03"))
+
+ggplot(plot_summary, aes(x = FrTu_clonal, y = percent, color = sample)) +
+	paletteer::scale_color_paletteer_d("Redmonder::qPBI") +
+    geom_point(size = 3) +
+    geom_line(aes(group = sample), linewidth = 1, alpha = 0.5) +
+    facet_wrap(~dna_presence) +
+    labs(x = "Clonality in Tumor Biopsy", y = "% Detected Mutations", color = "Patient") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    theme_classic()
+
+ggsave("cfDNA_detection_by_FrTu_clonality_exclude_GOI-02-03.pdf", width = 5, height = 4)
+
+# Function to run paired t-test
+run_paired_ttest <- function(plot_summary) {
+  plot_summary_wide <- plot_summary %>%
+    select(sample, FrTu_clonal, percent) %>%
+    pivot_wider(names_from = FrTu_clonal, values_from = percent)  # Wide format for paired test
+  
+  # Check if both "clonal" and "subclonal" exist in this subset
+  if (all(c("clonal", "subclonal") %in% names(plot_summary_wide))) {
+    ttest <- t.test(plot_summary_wide$clonal, plot_summary_wide$subclonal, paired = TRUE)
+    return(data.frame(dna_presence = unique(plot_summary$dna_presence), p_value = ttest$p.value))
+  } else {
+    return(data.frame(dna_presence = unique(plot_summary$dna_presence), p_value = NA))
+  }
+}
+
+# Apply test for each dna_presence group
+paired_ttest_results <- plot_summary %>%
+  group_by(dna_presence) %>%
+  group_split() %>%
+  lapply(run_paired_ttest) %>%
+  bind_rows()
+
+print(paired_ttest_results)
+
+```
+
+#### In cfDNA
+```{r}
+plot_table <- ccf_table %>%
+    filter(coding_consequence == "non_synonymous", dna_presence %in% c("Shared", "cfDNA_only")) %>%
+    mutate(
+        cfDNA_clonal = ifelse(ccf_cfDNA >= 0.9, "clonal", "subclonal")
+    )
+
+detected_FrTu <- ccf_table %>% filter(coding_consequence == "non_synonymous", dna_presence %in% c("Shared", "FrTu_only"))
+n_detected_FrTu <- detected_FrTu %>% group_by(sample) %>% summarise(n_detected_FrTu = n())
+
+# Plot Percent
+plot_summary <- plot_table %>%
+    group_by(sample, cfDNA_clonal, dna_presence) %>%
+    summarise(n_mutations = n(), .groups = "drop") %>%
+    complete(sample, cfDNA_clonal, dna_presence, fill = list(n_mutations = 0)) %>% # ensures entry for GOI-04 cfDNA clonal even if 0 mutations
+    group_by(sample, cfDNA_clonal) %>%
+    mutate(percent = round(n_mutations / sum(n_mutations) * 100, 2)) %>%
+    ungroup()
+plot_summary <- plot_summary %>% filter(!sample %in% c("GOI-02", "GOI-03"))
+# Change labels dna_presence to be more easy to understand
+plot_summary$dna_presence <- gsub("cfDNA_only", "Not detected in FrTu", plot_summary$dna_presence)
+plot_summary$dna_presence <- gsub("Shared", "Detected in FrTu", plot_summary$dna_presence)
+
+# Merge to add N Mutations detected in FrTu samples
+plot_summary <- plot_summary %>% left_join(n_detected_FrTu, by = "sample")
+
+# Plot without GOI-02 and GOI-03 (as no ctDNA in cfDNA, doesn't make sense to check at clonality in cfDNA)
+ggplot(plot_summary, aes(x = cfDNA_clonal, y = percent)) +
+    geom_line(aes(group = sample), linewidth = 0.7, alpha = 0.4) +
+    geom_point(aes(color = sample, size = log10(n_detected_FrTu)), alpha = 0.7) +
+    scale_color_manual(values = c("#00B8AAFF", "#000000", "#FD625EFF", "#F2C811FF", "#5F6B6DFF", "#8AD4EBFF", "#FE9666FF", "#A66999FF")) +
+    facet_wrap(~dna_presence) +
+    labs(
+      x = "Clonality in Liquid Biopsy", 
+      y = "% NSMs", 
+      color = "Patient", 
+      size = "Total NSMs in FrTu"
+    ) +
+    scale_size_continuous(
+      breaks = log10(c(10, 50, 250, 1000, 5000)),  # Log-transformed values
+      labels = c(10, 50, 250, 1000, 5000)  # Linear values for legend
+    ) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    theme_classic()
+
+ggsave("FrTu_detection_by_cfDNA_clonality.pdf", width = 6, height = 4)
+
+# Function to run paired t-test
+run_paired_ttest <- function(plot_summary) {
+  plot_summary_wide <- plot_summary %>%
+    select(sample, cfDNA_clonal, percent) %>%
+    pivot_wider(names_from = cfDNA_clonal, values_from = percent)  # Wide format for paired test
+  
+  # Check if both "clonal" and "subclonal" exist in this subset
+  if (all(c("clonal", "subclonal") %in% names(plot_summary_wide))) {
+    ttest <- t.test(plot_summary_wide$clonal, plot_summary_wide$subclonal, paired = TRUE)
+    return(data.frame(dna_presence = unique(plot_summary$dna_presence), p_value = ttest$p.value))
+  } else {
+    return(data.frame(dna_presence = unique(plot_summary$dna_presence), p_value = NA))
+  }
+}
+
+# Apply test for each dna_presence group
+paired_ttest_results <- plot_summary %>%
+  group_by(dna_presence) %>%
+  group_split() %>%
+  lapply(run_paired_ttest) %>%
+  bind_rows()
+
+print(paired_ttest_results)
+
+```
+
+# Summaries Immunogenic Mutations
+```{r}
+# # Regenerate ccf_table with all mutations and all transcripts (otherwise we might lose an immunogenic mutation if other transcript affected, other epitope created not immunogenic)
+# ccf_table <- list_ccf %>%
+#     bind_rows()
+
+
+
+# Plot
+p <- ggplot(
+    ccf_table %>%
+        mutate(
+            ccf_FrTu = ifelse(ccf_FrTu >= 1, 1, ccf_FrTu),
+            ccf_cfDNA = ifelse(ccf_cfDNA >= 1, 1, ccf_cfDNA)
+        ) %>%
+        filter(immunogenic == "yes") %>% distinct(sample, gene_name, .keep_all = TRUE),
+    aes(x = ccf_FrTu, y = ccf_cfDNA, color = dna_presence) #, shape = sample
+) +
+    geom_beeswarm(size = 3) +
+    scale_color_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+    geom_text_repel(aes(label = gene_name),
+        color = "grey30", size = 3.3,
+        min.segment.length = unit(0, "lines"), segment.color = "grey",
+        #   nudge_x = -15000,
+        #   hjust = 0,
+        #   direction = "y",
+        max.overlaps = Inf,
+        box.padding = 0.5,
+        fontface = "italic", force = 10,
+    ) +
+    theme_classic() +
+    labs(color = "Variant presence", shape = "Patient")
+
+p
+# ggplotly(p) %>% layout(width = 1000, height = 600)
+
+ggsave("Immunogenic_CCF.pdf", width = 7.6, height = 6)
+
+# Plot with patient name
+p <- ggplot(
+    ccf_table %>%
+        mutate(
+            ccf_FrTu = ifelse(ccf_FrTu >= 1, 1, ccf_FrTu),
+            ccf_cfDNA = ifelse(ccf_cfDNA >= 1, 1, ccf_cfDNA)
+        ) %>%
+        filter(immunogenic == "yes") %>% distinct(sample, gene_name, .keep_all = TRUE),
+    aes(x = ccf_FrTu, y = ccf_cfDNA, fill = dna_presence)
+) +
+    geom_point(size = 3, shape = 21, color = "white") +
+    scale_fill_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+    geom_text_repel(aes(label = gene_name, color = sample),
+        size = 3.3,
+        min.segment.length = unit(0, "lines"), segment.color = "grey",
+        #   nudge_x = -15000,
+        #   hjust = 0,
+        #   direction = "y",
+        max.overlaps = Inf,
+        box.padding = 0.5,
+        fontface = "italic", force = 30
+    ) +
+    paletteer::scale_color_paletteer_d("rcartocolor::Vivid") +
+    # paletteer::scale_color_paletteer_d("beyonce::X18") +
+    theme_classic() +
+    labs(fill = "Variant presence", color = "Patient")
+
+p
+# ggplotly(p) %>% layout(width = 1000, height = 600)
+
+ggsave("Immunogenic_CCF_with_patient_name.pdf", width = 7.6, height = 6)
+
+
+# Plot uncapped
+p <- ggplot(
+    ccf_table %>%
+        # mutate(
+        #     ccf_FrTu = ifelse(ccf_FrTu >= 1, 1, ccf_FrTu),
+        #     ccf_cfDNA = ifelse(ccf_cfDNA >= 1, 1, ccf_cfDNA)
+        # ) %>%
+        filter(immunogenic == "yes") %>% distinct(sample, gene_name, .keep_all = TRUE),
+    aes(x = ccf_FrTu, y = ccf_cfDNA, color = dna_presence) #, shape = sample
+) +
+    geom_beeswarm(size = 3) +
+    scale_color_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+    geom_text_repel(aes(label = gene_name),
+        color = "grey30", size = 3.3,
+        min.segment.length = unit(0, "lines"), segment.color = "grey",
+        #   nudge_x = -15000,
+        #   hjust = 0,
+        #   direction = "y",
+        max.overlaps = Inf,
+        box.padding = 0.5,
+        fontface = "italic", force = 100, max.time = 50
+    ) +
+    theme_classic() +
+    labs(color = "Variant presence", shape = "Patient", x = "Mutation copy number (Tumor Biopsy)", y = "Mutation copy number (cfDNA)")
+
+p
+# ggplotly(p) %>% layout(width = 1000, height = 600)
+
+ggsave("Immunogenic_CCF_uncapped.pdf", width = 7.6, height = 6)
+
+
+# Plot uncapped with patient name
+p <- ggplot(
+    ccf_table %>%
+        # mutate(
+        #     ccf_FrTu = ifelse(ccf_FrTu >= 1, 1, ccf_FrTu),
+        #     ccf_cfDNA = ifelse(ccf_cfDNA >= 1, 1, ccf_cfDNA)
+        # ) %>%
+        filter(immunogenic == "yes") %>% distinct(sample, gene_name, .keep_all = TRUE),
+    aes(x = ccf_FrTu, y = ccf_cfDNA, color = dna_presence, shape = sample)
+) +
+    geom_beeswarm(size = 3) +
+    scale_color_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+    geom_text_repel(aes(label = gene_name),
+        color = "grey30", size = 3.3,
+        min.segment.length = unit(0, "lines"), segment.color = "grey",
+        #   nudge_x = -15000,
+        #   hjust = 0,
+        #   direction = "y",
+        max.overlaps = Inf,
+        box.padding = 0.5,
+        fontface = "italic", force = 100, max.time = 50
+    ) +
+    theme_classic() +
+    labs(color = "Variant presence", shape = "Patient", x = "Mutation copy number (Tumor Biopsy)", y = "Mutation copy number (cfDNA)")
+
+p
+# ggplotly(p) %>% layout(width = 1000, height = 600)
+
+ggsave("Immunogenic_CCF_uncapped_with_patient_name.pdf", width = 7.6, height = 6)
+```
+
+#### Filtered parameters
+
+##### Called
+- TVAF >= 3%
+- Variant reads >= 4 reads
+- Coverage = or > 9 in both tumor and normal samples (all 3)
+- called by 2 or more callers both SNV and INDELS
+- All mutations that normal VAF = 0
+- If normal has VAF, VAF > 5X in tumor compared to normal
+
+##### Present
+- TVAF >= 1%
+
+<br>
+<br>
+
+```{r}
+# TO DO: change formula distinct... to include only immunogenic mutations (need to be done in CCF_calculation.Rmd files)
+filter_summary_immunogenic <- ccf_table %>%
+    filter(immunogenic == "yes") %>%
+    distinct(sample, gene_name, .keep_all = TRUE) %>%
+    mutate(
+        "FrTu tvaf/nvaf" = round(vaf_FrTu / vaf_Normal, 2),
+        "cfDNA tvaf/nvaf" = round(vaf_cfDNA / vaf_Normal, 2),
+        vaf_FrTu = round(vaf_FrTu, 3),
+        vaf_cfDNA = round(vaf_cfDNA, 3),
+        vaf_Normal = round(vaf_Normal, 3),
+        called_in = found_in,
+        present_in = dna_presence
+    ) %>%
+    dplyr::select(
+        sample,
+        gene_name,
+        `AA change`,
+        called_in,
+        present_in,
+        ccf_FrTu,
+        ccf_cfDNA,
+        vaf_FrTu,
+        vaf_cfDNA,
+        vaf_Normal,
+        `FrTu tvaf/nvaf`,
+        `cfDNA tvaf/nvaf`,
+        ALT_counts_FrTu,
+        ALT_counts_cfDNA,
+        cov_FrTu,
+        cov_cfDNA,
+        cov_Normal
+    )
+
+datatable(filter_summary_immunogenic)
+
+write.table(filter_summary_immunogenic, file = "summary_neoantigens.tsv", quote = F, row.names = F, sep = "\t")
+```
+
+```{r}
+#Plots summary immunogenic
+# Venn diagram
+FrTu_imm <- filter_summary_immunogenic %>%
+    filter(present_in %in% c("FrTu_only", "Shared")) %>%
+    pull(gene_name)
+cfDNA_imm <- filter_summary_immunogenic %>%
+    filter(present_in %in% c("cfDNA_only", "Shared")) %>%
+    pull(gene_name)
+
+x <- list(FrTu = FrTu_imm, cfDNA = cfDNA_imm)
+
+venn <- Venn(x)
+d <- process_data(venn, shape_id = "201")
+
+ggplot() +
+    geom_polygon(aes(X, Y, fill = name, group = id),
+        color = "grey50",
+        data = venn_regionedge(d)
+    ) +
+    scale_fill_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+    geom_text(aes(X, Y, label = name),
+        data = venn_setlabel(d)
+    ) +
+    # 4. region label layer
+    geom_label(aes(X, Y, label = count),
+        alpha = 0,
+        data = venn_regionlabel(d)
+    ) +
+    coord_equal() +
+    theme_void() +
+    labs(fill = "Variant presence")
+```
+
+```{r}
+ggsave("Venn_variant_presence.pdf")
+```
+
+```{r, fig.width=6.5, fig.height=3}
+# Barplots mutation sources
+plot_table <- filter_summary_immunogenic %>% group_by(sample)
+
+plot_table <- filter_summary_immunogenic %>%
+    group_by(sample, present_in) %>%
+    summarise(n_mutations = n())
+
+plot_table <- rbind(plot_table, data.frame(
+    sample = c("GOI-02", "GOI-07"),
+    present_in = c("Shared", "Shared"),
+    n_mutations = c(0, 0)
+))
+
+# datatable(plot_table)
+
+p1 <- ggplot(plot_table, aes(x = sample, y = n_mutations, fill = present_in)) +
+    geom_bar(stat = "identity") +
+    theme_classic() +
+    scale_fill_manual(values = c("#FCC557", "#D9D8D4", "#7CC6BF")) +
+    coord_flip() +
+    theme(
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank()
+    ) +
+    labs(fill = "Variant presence", y = "# Neoantigens / patient")
+
+# Plot % shared
+ccf_summary_percent <- ccf_table %>%
+    group_by(sample, dna_presence, coding_consequence) %>%
+    summarise(n_mutations = n(), .groups = "drop") %>%
+    group_by(sample, coding_consequence) %>%
+    mutate(percent = round(n_mutations / sum(n_mutations) * 100, 2)) %>%
+    ungroup()
+
+plot_table_percent <- ccf_summary_percent %>%
+    filter(coding_consequence == "non_synonymous" & dna_presence == "Shared") %>%
+    mutate(square = 1)
+
+p2 <- ggplot(plot_table_percent, aes(x = sample, y = square, color = percent)) +
+    geom_point(size = 12) +
+    scale_color_paletteer_c("ggthemes::Classic Gray") +
+    coord_flip() +
+    theme_classic() +
+    theme(
+        legend.position = "left",
+        axis.title = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks = element_blank(),
+        axis.line = element_blank()
+    ) +
+    labs(color = "% Shared NSMs")
+
+
+# Patchwork
+p2 + p1 +
+    plot_layout(widths = c(1, 5))
+```
+
+```{r}
+ggsave("Summary_variant_presence_barplot.pdf", height = 4, width = 7.5)
+```
