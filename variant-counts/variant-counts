@@ -4,11 +4,12 @@
 # ./variant-counts --version 1 [args...] # one merged vcf/tumor sample
 # ./variant-counts --version 2 [args...] # two merged vcf/tumor samples
 # ./variant-counts --version 3 [args...] # one single-caller vcf (oncoanalyser sage)
+# ./variant-counts --version 4 [args...] # multiple sage/pave vcfs with bam2R counts
 
 # Check if at least two arguments are passed
 if [[ $# -lt 2 ]]; then
     echo "Usage:"
-    echo "$0 --version {1|2|3} [args...]"
+    echo "$0 --version {1|2|3|4} [args...]"
     exit 1
 fi
 
@@ -55,9 +56,18 @@ case "$version" in
         fi
         run_rscript "VCF_to_counts_v3_single.R" "$@"
         ;;
+    4)
+        if [[ $# -ne 5 ]]; then
+            echo "Version 4 requires 5 arguments:"
+            echo "patient_name config_file bam_normal outdir threads"
+            echo "config_file: TSV with columns vcf_path, sample_label, bam_tumor"
+            exit 1
+        fi
+        run_rscript "VCF_to_counts_v4_multiple_pave.R" "$@"
+        ;;
     *)
         echo "Unsupported version: $version"
-        echo "Supported versions: 1, 2, 3"
+        echo "Supported versions: 1, 2, 3, 4"
         exit 1
         ;;
 esac

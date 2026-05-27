@@ -4,11 +4,12 @@
 # ./ccf --version 1 [args...]
 # ./ccf --version 2 [args...]
 # ./ccf --version 3 [args...]
+# ./ccf --version 4 [args...]
 
 # Check if at least two arguments are passed
 if [[ $# -lt 2 ]]; then
     echo "Usage:"
-    echo "$0 --version {1|2|3} [args...]"
+    echo "$0 --version {1|2|3|4} [args...]"
     exit 1
 fi
 
@@ -56,9 +57,12 @@ case "$version" in
     3)
         run_rscript "CCF_calculation_v3_single.R" "$@"
         ;;
+    4)
+        run_rscript "CCF_calculation_v4_multiple_pave.R" "$@"
+        ;;
     *)
         echo "Unsupported version: $version"
-        echo "Supported versions: 1, 2, 3"
+        echo "Supported versions: 1, 2, 3, 4"
         exit 1
         ;;
 esac

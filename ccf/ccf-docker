@@ -4,11 +4,12 @@
 # ./ccf-docker --version 1 [args...]
 # ./ccf-docker --version 2 [args...]
 # ./ccf-docker --version 3 [args...]
+# ./ccf-docker --version 4 [args...]
 
 # Check if at least two arguments are passed
 if [[ $# -lt 2 ]]; then
     echo "Usage:"
-    echo "$0 --version {1|2|3} [args...]"
+    echo "$0 --version {1|2|3|4} [args...]"
     exit 1
 fi
 
@@ -21,6 +22,9 @@ fi
 version="$2"
 shift 2
 
+# Extra mounts populated per version when paths live inside a config file
+extra_mounts=()
+
 # Function to run Rscript
 run_rscript() {
     local script="$1"
@@ -28,8 +32,8 @@ run_rscript() {
     echo "Running R script via Docker: $script"
     echo "Arguments: $@"
 
-    # Collect all paths that need to be mounted
-    local mounts=()
+    # Start with any extra mounts pre-populated by the version case block
+    local mounts=("${extra_mounts[@]+"${extra_mounts[@]}"}") 
     for arg in "$@"; do
         if [[ -f "$arg" || -d "$arg" ]]; then
             dir=$(dirname "$(realpath "$arg")")
@@ -73,9 +77,25 @@ case "$version" in
     3)
         run_rscript "CCF_calculation_v3_single.R" "$@"
         ;;
+    4)
+        # Parse config TSV and pre-mount directories of all segs_path entries inside it
+        config_file=""
+        prev_arg=""
+        for arg in "$@"; do
+            [[ "$prev_arg" == "--config" ]] && config_file="$arg" && break
+            prev_arg="$arg"
+        done
+        if [[ -n "$config_file" && -f "$config_file" ]]; then
+            while IFS=$'\t' read -r sample_label purity segs_path || [[ -n "$sample_label" ]]; do
+                [[ "$sample_label" == "sample_label" ]] && continue  # skip header
+                extra_mounts+=("-v" "$(dirname "$segs_path"):$(dirname "$segs_path")")
+            done < "$config_file"
+        fi
+        run_rscript "CCF_calculation_v4_multiple_pave.R" "$@"
+        ;;
     *)
         echo "Unsupported version: $version"
-        echo "Supported versions: 1, 2, 3"
+        echo "Supported versions: 1, 2, 3, 4"
         exit 1
         ;;
 esac

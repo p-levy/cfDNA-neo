@@ -27,7 +27,7 @@ CHROM	POS	REF	ALT	Ensembl Gene name	Gene Name	cDNA change	AA change	Wt Epitope	M
 ```
 ### General use:
 ```
-./ccf --version {1|2|3} [args...]
+./ccf --version {1|2|3|4} [args...]
 ```
 >See below for **version-specific usage**.
 
@@ -168,3 +168,58 @@ options:
   --neo NEO
                         Neo output (WiGiTS)
 ```
+
+## Version 4: Multiple Sage/Pave tumor samples
+
+Follows `variant-counts --version 4` run (**bam2R counts from multiple Sage/Pave VCFs**). CCF is computed independently for each tumor sample using its own CNA segments and purity. A `found_in_PASS` column reports which samples pass all quality filters for each variant.
+
+### Config File Format
+Tab-separated, with header:
+
+| Column | Description |
+|---|---|
+| `sample_label` | sample label matching the variant-counts config (e.g. `FrTu`, `cfDNA`) |
+| `purity` | tumor purity (numeric) or `vaf` to estimate from VAF peak |
+| `segs_path` | path to ASCAT or PURPLE segments file |
+
+### How To Run
+```
+./ccf(-docker) --version 4 [-h] \
+	--patient PATIENT \
+	--variants_counts_path VARIANTS_COUNTS_PATH \
+	--config CONFIG \
+	--outdir OUTDIR \
+	[--min_tvaf MIN_TVAF] \
+	[--min_alt MIN_ALT] \
+	[--min_cov MIN_COV] \
+	[--bed_exome BED_EXOME] \
+	[--nsm_annot NSM_ANNOT] \
+	[--neo NEO]
+```
+
+```
+options:
+  -h, --help            show this help message and exit
+  --patient PATIENT     Patient ID
+  --variants_counts_path VARIANTS_COUNTS_PATH
+                        Path to variant read counts TSV (from variant-counts --version 4)
+  --config CONFIG       Config TSV file with columns: sample_label, purity, segs_path
+  --outdir OUTDIR       Output directory
+  --min_tvaf MIN_TVAF   Minimum tumor VAF (default: 0.03)
+  --min_alt MIN_ALT     Minimum ALT reads (default: 4)
+  --min_cov MIN_COV     Minimum coverage (default: 9)
+  --bed_exome BED_EXOME
+                        Exome capture BED file
+  --nsm_annot NSM_ANNOT
+                        NSM annotation table
+  --neo NEO             Neo output (WiGiTS)
+```
+
+### Output
+One row per variant passing filters in at least one sample, with per-sample columns:
+- `vaf_{label}`, `cov_{label}` — VAF and coverage (from bam2R counts)
+- `nMajor_{label}`, `nMinor_{label}` — copy numbers from CNA segments
+- `purity_{label}` — purity used for CCF calculation
+- `ccf_{label}` — cancer cell fraction
+- `passes_filters_{label}` — TRUE/FALSE quality filter flag
+- `found_in_PASS` — comma-separated list of samples passing all filters for this variant

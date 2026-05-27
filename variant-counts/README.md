@@ -2,7 +2,7 @@
 Scripts used to generate **ALT/REF read count tables** for variants called for any sample type (tumor, cfDNA and Normal DNA), using [vcfR](https://github.com/knausb/vcfR) and the `bam2R`function from the [deepSNV](https://github.com/gerstung-lab/deepSNV) R library. 
 
 ```
-./variant-counts --version {1|2|3} [args...]
+./variant-counts --version {1|2|3|4} [args...]
 ```
 
 **Requirements** <br>
@@ -98,6 +98,43 @@ Process a somatic variant call file (VCF) obtained from the variant caller **Sag
 `tumor_name_vcf` : tumor sample name as in VCF file <br>
 `normal_name_vcf` : normal sample name as in VCF file <br>
 `outdir` : output directory <br>
+
+## Version 4: Multiple Sage/Pave VCFs
+
+Process somatic variant calls from **two or more** tumor samples, each called by **Sage** and annotated by **Pave** (from the [nf-core/oncoanalyser](https://github.com/nf-core/oncoanalyser) pipeline). Variants are pooled into a **union** across all samples. Read counts are **re-extracted from all BAMs via `bam2R`** — including at sites not formally called in a given sample — so ALT reads are always reported. FILTER status (PASS/filtered) and IMPACT annotation are taken directly from the VCFs.
+
+### How To Run
+```
+./variant-counts(-docker) --version 4 \
+	patient_name \
+	config_file \
+	bam_normal \
+	outdir \
+	threads
+```
+**Usage**: <br>
+`patient_name` : patient / sample name <br>
+`config_file` : path to a **tab-separated config file** (with header) describing each tumor sample — see format below <br>
+`bam_normal` : path to the shared normal/germline BAM file <br>
+`outdir` : output directory <br>
+`threads` : number of CPUs to use when running `bam2R` for multiple variants in parallel <br>
+
+### Config File Format
+Tab-separated, one row per tumor sample, with the following header columns:
+
+| Column | Description |
+|---|---|
+| `vcf_path` | path to `sage.somatic.pave.vcf.gz` for this sample |
+| `sample_label` | short label for this sample (e.g. `FrTu`, `cfDNA`, `Biopsy2`) |
+| `bam_tumor` | path to the tumor BAM file for this sample |
+
+### Output
+One row per variant in the **union** across all samples, with columns:
+- `found_in` : comma-separated list of sample labels that called the variant
+- `IMPACT` : PAVE impact annotation (first non-NA across samples)
+- `FILTER_{label}` per sample: PASS / filter reason if the variant was called in that sample; `NA` if not called
+- `REF_counts_{label}`, `ALT_counts_{label}` per tumor sample (from `bam2R`, always present)
+- `REF_counts_Normal`, `ALT_counts_Normal` (from `bam2R` on the shared germline BAM)
 
 ## 
 

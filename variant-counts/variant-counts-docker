@@ -6,11 +6,12 @@ set -uex
 # ./variant-counts-docker --version 1 [args...] # one merged vcf/tumor sample
 # ./variant-counts-docker --version 2 [args...] # two merged vcf/tumor samples
 # ./variant-counts-docker --version 3 [args...] # one single-caller vcf (oncoanalyser sage)
+# ./variant-counts-docker --version 4 [args...] # multiple sage/pave vcfs with bam2R counts
 
 # Check if at least two arguments are passed
 if [[ $# -lt 2 ]]; then
     echo "Usage:"
-    echo "$0 --version {1|2|3} [args...]"
+    echo "$0 --version {1|2|3|4} [args...]"
     exit 1
 fi
 
@@ -23,6 +24,9 @@ fi
 version="$2"
 shift 2
 
+# Extra mounts populated per version when paths live inside a config file
+extra_mounts=()
+
 # Function to run Rscript
 run_rscript() {
     local script="$1"
@@ -30,8 +34,8 @@ run_rscript() {
     echo "Running R script via Docker: $script"
     echo "Arguments: $@"
 
-    # Collect all paths that need to be mounted
-    local mounts=()
+    # Start with any extra mounts pre-populated by the version case block
+    local mounts=("${extra_mounts[@]+"${extra_mounts[@]}"}") 
     for arg in "$@"; do
         if [[ -f "$arg" || -d "$arg" ]]; then
             dir=$(dirname "$(realpath "$arg")")
@@ -74,9 +78,25 @@ case "$version" in
         fi
         run_rscript "VCF_to_counts_v3_single.R" "$@"
         ;;
+    4)
+        if [[ $# -ne 5 ]]; then
+            echo "Version 4 requires 5 arguments:"
+            echo "patient_name config_file bam_normal outdir threads"
+            echo "config_file: TSV with columns vcf_path, sample_label, bam_tumor"
+            exit 1
+        fi
+        # Parse config TSV and pre-mount directories of all VCF and BAM paths inside it
+        config_file="$2"
+        while IFS=$'\t' read -r vcf_path sample_label bam_tumor || [[ -n "$vcf_path" ]]; do
+            [[ "$vcf_path" == "vcf_path" ]] && continue  # skip header
+            extra_mounts+=("-v" "$(dirname "$vcf_path"):$(dirname "$vcf_path")")
+            extra_mounts+=("-v" "$(dirname "$bam_tumor"):$(dirname "$bam_tumor")")
+        done < "$config_file"
+        run_rscript "VCF_to_counts_v4_multiple_pave.R" "$@"
+        ;;
     *)
         echo "Unsupported version: $version"
-        echo "Supported versions: 1, 2, 3"
+        echo "Supported versions: 1, 2, 3, 4"
         exit 1
         ;;
 esac
