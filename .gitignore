@@ -2,3 +2,13 @@ cna/ascat_refs/
 phylo/Rplots.pdf
 phylo/run_conipher.R
 plots/cna_percent.tsv
+tmp/
+old/
+TIL012/
+.vdoc*
+.ccf_plots*
+*.pdf
+.DS_Store
+*.Rhistory
+GOI_cohort_variants*
+create_test_plots.R
