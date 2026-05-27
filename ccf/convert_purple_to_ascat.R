@@ -70,7 +70,7 @@ convert_purple_to_ascat <- function(
     if (is.null(sample_name)) {
         if (is.character(purple_input)) {
             sample_name <- tools::file_path_sans_ext(basename(purple_input))
-            sample_name <- gsub("\\.purple\\.segment$", "", sample_name)
+            sample_name <- gsub("\\.purple\\.segment$|\\.purple\\.cnv\\.somatic$", "", sample_name)
         } else {
             sample_name <- "sample"
         }
@@ -152,8 +152,8 @@ example_usage <- function() {
     cat(")\n")
 }
 
-# Print usage if script is run directly
-if (!interactive()) {
+# Print usage if script is run directly (not sourced from another script)
+if (sys.nframe() == 0) {
     args <- commandArgs(trailingOnly = TRUE)
     if (length(args) == 0) {
         cat("PURPLE to ASCAT segment converter\n")
